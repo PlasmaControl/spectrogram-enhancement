@@ -196,7 +196,6 @@ def get_samples(file, num_samples, spectrograms, final):
     
 
 if __name__ == '__main__':
-    
     # Samples (will be 20*num_samples because 20 channels)
     num_samples = 20
     
