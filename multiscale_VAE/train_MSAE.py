@@ -216,9 +216,9 @@ if __name__ == '__main__':
     # Initialize network
     input = layers.Input(shape = (256, 128, 1))
     
-    x = MSConv2D(filters=nodes, kernels=kernels)(input)
-    x = MSConv2D(filters=nodes, kernels=kernels)(x)
-    x = MSConv2D(filters=nodes, kernels=kernels)(x)
+    x = MSConv2D(nodes, kernels)(input)
+    x = MSConv2D(nodes, kernels)(x)
+    x = MSConv2D(nodes, kernels)(x)
     
     x = MSConv2DTranspose(filters=nodes, kernels=kernels)(x)
     x = MSConv2DTranspose(filters=nodes, kernels=kernels)(x)
