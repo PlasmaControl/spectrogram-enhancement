@@ -109,9 +109,13 @@ def plt_spec_shot(dset, predictions, noisy, shotn, i, plot_name):
     plt.savefig(plot_name)
 
 # saves plots and losses
-def post_process():
+def post_process(file, autoencoder, hist):
     '''
     Plot predictions for spectrograms and losses
+    
+    Sxx_test_reshaped
+    Sxx_test
+    final_test
     '''
     # Make directory to save model
     data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/'
@@ -185,10 +189,10 @@ def get_samples(file, num_samples, spectrograms, final):
     Sxx_test_reshaped = reshape(Sxx_test)
     Sxx_tune_reshaped = reshape(Sxx_tune)
     final_train_reshaped = reshape(final_train)
-    final_test_reshaped = reshape(final_test)
+    # final_test_reshaped = reshape(final_test)
     final_tune_reshaped = reshape(final_tune)
     
-    return (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, final_train_reshaped, final_test_reshaped, final_tune_reshaped)
+    return (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, final_train_reshaped, final_test, final_tune_reshaped, Sxx_test)
     
 
 if __name__ == '__main__':
@@ -207,7 +211,7 @@ if __name__ == '__main__':
     
     # Get data
     (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, \
-     final_train_reshaped, final_test_reshaped, final_tune_reshaped) = \
+     final_train_reshaped, final_test, final_tune_reshaped, Sxx_test) = \
          get_samples(file, num_samples, spectrograms, final)
     
     # Initialize network
@@ -239,7 +243,7 @@ if __name__ == '__main__':
     )
     
     # Make some plots and save errors
-    post_process()
+    post_process(file, autoencoder, hist,Sxx_test_reshaped, Sxx_test, final_test)
     
     # Close h5 data file
     file.close()
