@@ -47,7 +47,7 @@ class MSConv2DTranspose(Layer):
         self.Conv2Trans = layers.Conv2DTranspose(nodes, (kernels[1],kernels[1]), strides=2, activation="relu", padding="same")
         self.Conv3Trans = layers.Conv2DTranspose(nodes, (kernels[2],kernels[2]), strides=2, activation="relu", padding="same")
         
-    def call(self):
+    def call(self, inputs):
         '''
         Compute each Convolution Transpose separately then add together
         
