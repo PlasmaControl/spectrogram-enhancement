@@ -1,30 +1,21 @@
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-# get_ipython().run_line_magic('matplotlib', 'inline')
 import numpy as np
-import pandas as pd
-import pickle
-import scipy.signal
-import glob
-import cv2
-from skimage.exposure import rescale_intensity
-import argparse
-from sklearn.cluster import KMeans
-from itertools import groupby
-from skimage import color, data, restoration
+# import scipy.signal
+# import argparse
+# from skimage import data
 import h5py
 import random
-from tqdm import tqdm
 import os
 import time
 from patchify import patchify, unpatchify
-import glob
-import tensorflow
+# import glob
+# import tensorflow as tf
 
 from keras import layers
-from keras.datasets import mnist
 from keras.models import Model
-from keras.models import load_model
+
+from MultiscaleLayer import MSConv2D, MSConv2DTranspose
 
 # patches all the strips together to 1 spectrogram
 def patch(arr):
@@ -50,7 +41,7 @@ def unpatch(arr):
         all_spectrograms.append(reconstructed)
     return np.array(all_spectrograms)
 
-#reshapes the data
+# reshapes the data
 def reshape(arr):
     arr = np.reshape(arr, (len(arr), 256, 128, 1))
     return arr
@@ -80,7 +71,8 @@ def display(Sxx, final, fname, dset):
         _=plt.ylabel('Final (kHz)')
     
     plt.savefig(fname)
-    
+
+# Plots a spectrogram shot
 def plt_spec_shot(dset, predictions, noisy, shotn, i, plot_name):
     # Read data from hdf5 file and change shape of raw spectrogram
     pipeline = []
@@ -116,75 +108,13 @@ def plt_spec_shot(dset, predictions, noisy, shotn, i, plot_name):
     
     plt.savefig(plot_name)
 
-
-if __name__ == '__main__':
-    # Get job array ID to use when running hyperparam sweep
-    idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
-    kernel_vals = [(3,3), (5,5), (7,7)]
-    nodes = 32
-    
-    spectrograms = []
-    final = []
-    thr = 0.9
-
-    file = h5py.File('/scratch/gpfs/ar0535/spectrogram_data.hdf5', 'r')
-
-    num_samples = 20
-    random_sample = random.sample(file.keys(), num_samples)
-
-    for fname in tqdm(random_sample):
-        shotn = fname[fname.rfind('_')+1:fname.rfind('.')]
-
-        for chn in range(20):
-            name = fname+'/chn_'+str(chn+1)
-            spectrograms.append(np.array(file[name]['spec']))     
-            final.append(np.array(file[name]['pipeline_out']))
-    
-    # Change shape so that time length is 128 points
-    spectrograms = patch(spectrograms)
-    final = patch(final)
-
-    #split into 60% (train), 25% (tune), 15% (test)
-    Sxx_train, Sxx_tune, Sxx_test = np.split(spectrograms, [int(len(spectrograms)*0.6), int(len(spectrograms)*0.85)])
-    final_train, final_tune, final_test = np.split(final, [int(len(final)*0.6), int(len(final)*0.85)])
-    
-    
-    # Initialize network
-    input = layers.Input(shape = (256, 128, 1))
-
-    x = layers.Conv2D(32, kernel_vals[idx], activation="relu", padding="same")(input)
-    x = layers.MaxPooling2D((2, 2), padding="same")(x)
-    x = layers.Conv2D(32, kernel_vals[idx], activation="relu", padding="same")(x)
-    x = layers.MaxPooling2D((2, 2), padding="same")(x)
-
-    x = layers.Conv2DTranspose(32, kernel_vals[idx], strides=2, activation="relu", padding="same")(x)
-    x = layers.Conv2DTranspose(32, kernel_vals[idx], strides=2, activation="relu", padding="same")(x)
-    x = layers.Conv2D(1, kernel_vals[idx], activation="sigmoid", padding="same")(x)
-
-    autoencoder = Model(input, x)
-    autoencoder.compile(optimizer="adam", loss="binary_crossentropy")
-    # autoencoder.summary()
-
-    # reshape our data to add 1 extra dim for pooling later
-    Sxx_train_reshaped = reshape(Sxx_train)
-    Sxx_test_reshaped = reshape(Sxx_test)
-    Sxx_tune_reshaped = reshape(Sxx_tune)
-    final_train_reshaped = reshape(final_train)
-    final_test_reshaped = reshape(final_test)
-    final_tune_reshaped = reshape(final_tune)
-
-    ep = 15 # Epochs, 10 may be too few but 100 was overkill
-    hist = autoencoder.fit(
-        x=Sxx_train_reshaped,
-        y=final_train_reshaped,
-        epochs=ep,
-        batch_size=128,
-        shuffle=True,
-        validation_data=(Sxx_tune_reshaped, final_tune_reshaped),
-    )
-    
+# saves plots and losses
+def post_process():
+    '''
+    Plot predictions for spectrograms and losses
+    '''
     # Make directory to save model
-    data_path = f'/scratch/gpfs/ar0535/spec_model_data/kernel_{kernel_vals[idx][0]}/'
+    data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/'
     os.makedirs(data_path)
     
     # Save autoencoder Model
@@ -210,8 +140,8 @@ if __name__ == '__main__':
     plt.plot(range(ep), val_loss)
     plt.savefig(data_path+'val_loss.png')
     np.savetxt(data_path+'val_loss.txt', val_loss)
-    
-    t_predict = 0.0
+
+
     chn_num = 20 # Total channel number
     # Example prediction plot
     for i in range(chn_num):
@@ -223,27 +153,93 @@ if __name__ == '__main__':
         noisy.append(np.array(dset['spec']))
         noisy = patch(noisy)
         
-        # Time autoencoder predictions
-        start = time.time()
+        # Predict spectrograms
         predictions = autoencoder.predict(reshape(noisy))
-        end = time.time()
         
         # Plot raw, processed, and predicted spectrograms
         if (i+1) in range(10,13):
             plt_spec_shot(dset, predictions, noisy, shotn, i+1, data_path+f'plot_chn_{i+1}.png')
-        
-        # Add prediction time to running total
-        t_predict += (end-start)
-        
+
+# Get random samples to train model
+def get_samples(file, num_samples, spectrograms, final):
+    random_sample = random.sample(file.keys(), num_samples)
+
+    for fname in random_sample:
+        shotn = fname[fname.rfind('_')+1:fname.rfind('.')]
+
+        for chn in range(20):
+            name = fname+'/chn_'+str(chn+1)
+            spectrograms.append(np.array(file[name]['spec']))     
+            final.append(np.array(file[name]['pipeline_out']))
     
-    # Time to get prediction
-    t_predict /= chn_num
-    f = open(data_path+'t_pred.txt', 'w')
-    f.write(str(t_predict))
-    f.write(str(nodes))
-    f.close()
+    # Change shape so that time length is 128 points
+    spectrograms = patch(spectrograms)
+    final = patch(final)
+
+    #split into 60% (train), 25% (tune), 15% (test)
+    Sxx_train, Sxx_tune, Sxx_test = np.split(spectrograms, [int(len(spectrograms)*0.6), int(len(spectrograms)*0.85)])
+    final_train, final_tune, final_test = np.split(final, [int(len(final)*0.6), int(len(final)*0.85)])
     
-    # Save Autoencoder
-    autoencoder.save(data_path+'keras_model')
+    # reshape our data to add 1 extra dim for pooling later
+    Sxx_train_reshaped = reshape(Sxx_train)
+    Sxx_test_reshaped = reshape(Sxx_test)
+    Sxx_tune_reshaped = reshape(Sxx_tune)
+    final_train_reshaped = reshape(final_train)
+    final_test_reshaped = reshape(final_test)
+    final_tune_reshaped = reshape(final_tune)
     
+    return (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, final_train_reshaped, final_test_reshaped, final_tune_reshaped)
+    
+
+if __name__ == '__main__':
+    
+    # Samples (will be 20*num_samples because 20 channels)
+    num_samples = 20
+    
+    # Multiscale w/ 1x1, 3x3, and 5x5 kernels
+    kernels = [1, 3, 5]
+    nodes = 32
+    
+    spectrograms = []
+    final = []
+
+    file = h5py.File('/scratch/gpfs/ar0535/spectrogram_data.hdf5', 'r')
+    
+    # Get data
+    (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, \
+     final_train_reshaped, final_test_reshaped, final_tune_reshaped) = \
+         get_samples(file, num_samples, spectrograms, final)
+    
+    # Initialize network
+    input = layers.Input(shape = (256, 128, 1))
+    
+    x = MSConv2D(filters=nodes, kernels=kernels)(input)
+    x = MSConv2D(filters=nodes, kernels=kernels)(x)
+    x = MSConv2D(filters=nodes, kernels=kernels)(x)
+    
+    x = MSConv2DTranspose(filters=nodes, kernels=kernels)(x)
+    x = MSConv2DTranspose(filters=nodes, kernels=kernels)(x)
+    x = MSConv2DTranspose(filters=nodes, kernels=kernels)(x)
+    
+    # End with normal 3x3 Convolutional Layer
+    x = layers.Conv2D(1, (3,3), activation="sigmoid", padding="same")(x)
+
+    autoencoder = Model(input, x)
+    autoencoder.compile(optimizer="adam", loss="binary_crossentropy")
+    autoencoder.summary()
+
+    ep = 15 # Epochs, 10 may be too few but 100 was overkill
+    hist = autoencoder.fit(
+        x=Sxx_train_reshaped,
+        y=final_train_reshaped,
+        epochs=ep,
+        batch_size=128,
+        shuffle=True,
+        validation_data=(Sxx_tune_reshaped, final_tune_reshaped),
+    )
+    
+    # Make some plots and save errors
+    post_process()
+    
+    # Close h5 data file
     file.close()
