@@ -206,12 +206,16 @@ if __name__ == '__main__':
     spectrograms = []
     final = []
 
+    '''
     file = h5py.File('/scratch/gpfs/ar0535/spectrogram_data.hdf5', 'r')
     
     # Get data
     (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, \
      final_train_reshaped, final_test, final_tune_reshaped, Sxx_test) = \
          get_samples(file, num_samples, spectrograms, final)
+    '''
+    
+    
     
     # Initialize network
     input = layers.Input(shape = (256, 128, 1))
@@ -220,9 +224,9 @@ if __name__ == '__main__':
     x = MSConv2D(nodes, kernels)(x)
     x = MSConv2D(nodes, kernels)(x)
     
-    x = MSConv2DTranspose(filters=nodes, kernels=kernels)(x)
-    x = MSConv2DTranspose(filters=nodes, kernels=kernels)(x)
-    x = MSConv2DTranspose(filters=nodes, kernels=kernels)(x)
+    x = MSConv2DTranspose(nodes, kernels)(x)
+    x = MSConv2DTranspose(nodes, kernels)(x)
+    x = MSConv2DTranspose(nodes, kernels)(x)
     
     # End with normal 3x3 Convolutional Layer
     x = layers.Conv2D(1, (3,3), activation="sigmoid", padding="same")(x)
@@ -231,6 +235,7 @@ if __name__ == '__main__':
     autoencoder.compile(optimizer="adam", loss="binary_crossentropy")
     autoencoder.summary()
 
+    '''
     ep = 15 # Epochs, 10 may be too few but 100 was overkill
     hist = autoencoder.fit(
         x=Sxx_train_reshaped,
@@ -246,3 +251,4 @@ if __name__ == '__main__':
     
     # Close h5 data file
     file.close()
+    '''
