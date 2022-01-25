@@ -112,7 +112,7 @@ def post_process(file, autoencoder, hist):
     final_test
     '''
     # Make directory to save model
-    data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/'
+    data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/Ker_'+str(kernels[0])+str(kernels(1))+str(kernels(2))
     os.makedirs(data_path)
     
     # Save autoencoder Model
@@ -223,7 +223,6 @@ def MSConv2DTranspose(initial, nodes, kernels):
     # Sum together
     return layers.Add()([x1, x2, x3])
 
-
 if __name__ == '__main__':
     # Samples (will be 20*num_samples because 20 channels)
     num_samples = 20
@@ -260,7 +259,7 @@ if __name__ == '__main__':
     autoencoder.compile(optimizer="adam", loss="binary_crossentropy")
     autoencoder.summary()
 
-    ep = 15 # Epochs, 10 may be too few but 100 was overkill
+    ep = 10 # Epochs, 10 may be too few but 100 was overkill
     hist = autoencoder.fit(
         x=Sxx_train_reshaped,
         y=final_train_reshaped,
