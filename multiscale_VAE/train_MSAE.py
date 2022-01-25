@@ -9,8 +9,6 @@ from patchify import patchify, unpatchify
 from keras import layers
 from keras.models import Model
 
-from MultiscaleLayer import MSConv2D, MSConv2DTranspose
-
 # patches all the strips together to 1 spectrogram
 def patch(arr):
     all_patches = np.empty((len(arr)* 30, 256, 128))
