@@ -101,7 +101,7 @@ def plt_spec_shot(dset, predictions, noisy, shotn, i, plot_name):
     plt.savefig(plot_name)
 
 # saves plots and losses
-def post_process(file, autoencoder, hist):
+def post_process(file, autoencoder, hist,Sxx_test_reshaped, Sxx_test, final_test, kernels):
     '''
     Plot predictions for spectrograms and losses
     
@@ -110,7 +110,7 @@ def post_process(file, autoencoder, hist):
     final_test
     '''
     # Make directory to save model
-    data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/Ker_'+str(kernels[0])+str(kernels(1))+str(kernels(2))
+    data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/Ker_{kernels[0]}{kernels[1]}{kernels[2]}/'
     os.makedirs(data_path)
     
     # Save autoencoder Model
@@ -223,10 +223,10 @@ def MSConv2DTranspose(initial, nodes, kernels):
 
 if __name__ == '__main__':
     # Samples (will be 20*num_samples because 20 channels)
-    num_samples = 20
+    num_samples = 200
     
     # Multiscale w/ 1x1, 3x3, and 5x5 kernels
-    kernels = [1, 3, 5]
+    kernels = [3, 5, 7]
     nodes = 32
     
     spectrograms = []
@@ -257,7 +257,7 @@ if __name__ == '__main__':
     autoencoder.compile(optimizer="adam", loss="binary_crossentropy")
     autoencoder.summary()
 
-    ep = 10 # Epochs, 10 may be too few but 100 was overkill
+    ep = 50 # Epochs, 10 may be too few but 100 was overkill
     hist = autoencoder.fit(
         x=Sxx_train_reshaped,
         y=final_train_reshaped,
@@ -268,7 +268,7 @@ if __name__ == '__main__':
     )
     
     # Make some plots and save errors
-    post_process(file, autoencoder, hist,Sxx_test_reshaped, Sxx_test, final_test)
+    post_process(file, autoencoder, hist,Sxx_test_reshaped, Sxx_test, final_test, kernels)
     
     # Close h5 data file
     file.close()
