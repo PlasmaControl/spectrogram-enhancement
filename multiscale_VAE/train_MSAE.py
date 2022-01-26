@@ -39,15 +39,11 @@ def reshape(arr):
     return arr
 
 # displays Sxx and final
-def display(Sxx, final, fname, dset):
+def display(plot1, plot2, fname, dset):
     n = 5
     
     t = np.array(dset['t'])[:3840]
     f = (np.array(dset['f'])/1000)+1
-    
-    idx = np.random.randint(len(Sxx), size=n)
-    plots1 = Sxx[idx, :]
-    plots2 = final[idx, :]
     
     fig = plt.figure(figsize=(8,12))
     grd = gridspec.GridSpec(ncols=1, nrows=(2 * n), figure=fig)
@@ -101,7 +97,7 @@ def plt_spec_shot(dset, predictions, noisy, shotn, i, plot_name):
     plt.savefig(plot_name)
 
 # saves plots and losses
-def post_process(file, autoencoder, hist,Sxx_test_reshaped, Sxx_test, final_test, kernels):
+def post_process(file, autoencoder, hist, plot1, plot2, kernels):
     '''
     Plot predictions for spectrograms and losses
     
@@ -116,19 +112,10 @@ def post_process(file, autoencoder, hist,Sxx_test_reshaped, Sxx_test, final_test
     # Save autoencoder Model
     autoencoder.save(data_path+'keras_model')    
     
-    # predict and reformat
-    predictions = autoencoder.predict(Sxx_test_reshaped)
-    predictions = np.squeeze(predictions, axis=3)
-    
-    # restitch everything together to a list of spectrograms
-    noisy = unpatch(Sxx_test)
-    autoencoder_final = unpatch(predictions)
-    pipeline_final = unpatch(final_test)
-    
     # Sample data set for general time and freq data (axis for plotting)
     shotn = 176053 # Shot we decide to look at
     dset = file[f'ece_{shotn}']['chn_1']
-    display(noisy, autoencoder_final, data_path+'ex_specs.png', dset)
+    display(plot1, plot2, data_path+'ex_specs.png', dset)
     
     plt.clf()
     # Save validation loss and validation loss plot
@@ -267,8 +254,22 @@ if __name__ == '__main__':
         validation_data=(Sxx_tune_reshaped, final_tune_reshaped),
     )
     
-    # Make some plots and save errors
-    post_process(file, autoencoder, hist,Sxx_test_reshaped, Sxx_test, final_test, kernels)
+    ### Pick random data to plot (Done here bc I ran into memory errors)
+    # predict and reformat
+    predictions = autoencoder.predict(Sxx_test_reshaped)
+    predictions = np.squeeze(predictions, axis=3)
+    
+    # restitch everything together to a list of spectrograms
+    noisy = unpatch(Sxx_test)
+    autoencoder_final = unpatch(predictions)
+    
+    n = 5 # Number of random test data spectrograms to plot
+    idx = np.random.randint(len(noisy), size=n)
+    plots1 = noisy[idx, :]
+    plots2 = autoencoder_final[idx, :]
+    
+    ### Make some plots and save errors
+    post_process(file, autoencoder, hist, plots1, plots2, kernels)
     
     # Close h5 data file
     file.close()
