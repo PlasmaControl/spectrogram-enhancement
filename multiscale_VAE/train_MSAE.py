@@ -44,7 +44,7 @@ def display(noisy, processed, predictions, datapath, dset, n):
     t = np.array(dset['t'])[:3840]
     f = (np.array(dset['f'])/1000)+1
     
-    for i in range(n):
+    for i in range(n*3): # 3x b/c 3 channels
         # Make plot 
         fig = plt.figure(figsize=(8,12))
         grd = gridspec.GridSpec(ncols=1, nrows=3, figure=fig)
@@ -167,7 +167,12 @@ def get_samples(file, num_samples, Split=True):
     for fname in random_sample:
         shotn = fname[fname.rfind('_')+1:fname.rfind('.')]
 
-        for chn in range(20):
+        if Split:
+            chns = range(20)
+        else:
+            chns = range(10,12)
+        
+        for chn in chns:
             name = fname+'/chn_'+str(chn+1)
             spectrograms.append(np.array(file[name]['spec']))     
             final.append(np.array(file[name]['pipeline_out']))
