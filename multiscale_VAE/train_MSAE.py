@@ -235,7 +235,7 @@ if __name__ == '__main__':
     num_samples = 200
     
     # Multiscale w/ 1x1, 3x3, and 5x5 kernels
-    kernels = [3, 5, 7]
+    kernels = [1, 3, 5]
     nodes = 32
     
     file = h5py.File('/scratch/gpfs/ar0535/spectrogram_data.hdf5', 'r')
