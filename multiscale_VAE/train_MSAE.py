@@ -268,9 +268,10 @@ if __name__ == '__main__':
         x=Sxx_train_reshaped,
         y=final_train_reshaped,
         epochs=ep,
-        batch_size=128,
+        batch_size=32,
         shuffle=True,
         validation_data=(Sxx_tune_reshaped, final_tune_reshaped),
+        verbose=2,
     )
     
     ### Make some plots and save errors
