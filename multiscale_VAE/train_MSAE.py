@@ -1,3 +1,4 @@
+from urllib import response
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
@@ -39,26 +40,30 @@ def reshape(arr):
     return arr
 
 # displays Sxx and final
-def display(plot1, plot2, fname, dset):
-    n = 5
-    
+def display(noisy, processed, predictions, datapath, dset, n):
     t = np.array(dset['t'])[:3840]
     f = (np.array(dset['f'])/1000)+1
     
-    fig = plt.figure(figsize=(8,12))
-    grd = gridspec.GridSpec(ncols=1, nrows=(2 * n), figure=fig)
-    ax=[None] * (2 * n)
-    
-    for i, (plot1, plot2) in enumerate(zip(plots1, plots2)):
-        ax[2*i] = fig.add_subplot(grd[2*i])
-        ax[2*i].pcolormesh(t,f,plot1,cmap='hot',shading='gouraud')
-        _=plt.ylabel('Original (kHz)')
-        
-        ax[2*i+1] = fig.add_subplot(grd[2*i+1])
-        ax[2*i+1].pcolormesh(t,f,plot2,cmap='hot',shading='gouraud')
-        _=plt.ylabel('Final (kHz)')
-    
-    plt.savefig(fname)
+    for i in range(n):
+        # Make plot 
+        fig = plt.figure(figsize=(8,12))
+        grd = gridspec.GridSpec(ncols=1, nrows=3, figure=fig)
+        ax=[None] * 3
+
+        ax[0] = fig.add_subplot(grd[0])
+        ax[0].pcolormesh(t,f,noisy[i,:,:],cmap='hot',shading='gouraud')
+        _=plt.ylabel('Original - Raw Data (kHz))')
+
+        ax[1] = fig.add_subplot(grd[1])
+        ax[1].pcolormesh(t,f,predictions[i,:,:],cmap='hot',shading='gouraud')
+        _=plt.ylabel('Predicted Denoised (kHz)')
+
+        ax[2] = fig.add_subplot(grd[2])
+        ax[2].pcolormesh(t,f,processed[i,:,:],cmap='hot',shading='gouraud')
+        _=plt.ylabel('Pipeline (kHz)')
+
+        fname = datapath+'ex_spec'+str(i)+'.png'
+        plt.savefig(fname)
 
 # Plots a spectrogram shot
 def plt_spec_shot(dset, predictions, noisy, shotn, i, plot_name):
@@ -97,25 +102,34 @@ def plt_spec_shot(dset, predictions, noisy, shotn, i, plot_name):
     plt.savefig(plot_name)
 
 # saves plots and losses
-def post_process(file, autoencoder, hist, plot1, plot2, kernels):
+def post_process(file, autoencoder, hist, kernels, n):
     '''
     Plot predictions for spectrograms and losses
-    
-    Sxx_test_reshaped
-    Sxx_test
-    final_test
     '''
     # Make directory to save model
     data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/Ker_{kernels[0]}{kernels[1]}{kernels[2]}/'
     os.makedirs(data_path)
     
     # Save autoencoder Model
-    autoencoder.save(data_path+'keras_model')    
+    autoencoder.save(data_path+'keras_model')
+    
+    raw_specs, pipeline_specs = get_samples(file, n, Split=False)
+    
+    ### Pick random data to plot (Done here bc I ran into memory errors)
+    # predict and reformat
+    predictions = autoencoder.predict(raw_specs)
+    predictions = np.squeeze(predictions, axis=3)
+    
+    # restitch everything together to a list of spectrograms
+    raw_specs_reshaped = np.squeeze(raw_specs, axis=3)
+    noisy = unpatch(raw_specs_reshaped)
+    autoencoder_final = unpatch(predictions)
+    pipeline_specs = unpatch(pipeline_specs)
     
     # Sample data set for general time and freq data (axis for plotting)
     shotn = 176053 # Shot we decide to look at
     dset = file[f'ece_{shotn}']['chn_1']
-    display(plot1, plot2, data_path+'ex_specs.png', dset)
+    display(noisy, pipeline_specs, autoencoder_final, data_path, dset, n)
     
     plt.clf()
     # Save validation loss and validation loss plot
@@ -144,7 +158,10 @@ def post_process(file, autoencoder, hist, plot1, plot2, kernels):
             plt_spec_shot(dset, predictions, noisy, shotn, i+1, data_path+f'plot_chn_{i+1}.png')
 
 # Get random samples to train model
-def get_samples(file, num_samples, spectrograms, final):
+def get_samples(file, num_samples, Split=True):
+    spectrograms = []
+    final = []
+    
     random_sample = random.sample(file.keys(), num_samples)
 
     for fname in random_sample:
@@ -159,19 +176,24 @@ def get_samples(file, num_samples, spectrograms, final):
     spectrograms = patch(spectrograms)
     final = patch(final)
 
-    #split into 60% (train), 25% (tune), 15% (test)
-    Sxx_train, Sxx_tune, Sxx_test = np.split(spectrograms, [int(len(spectrograms)*0.6), int(len(spectrograms)*0.85)])
-    final_train, final_tune, final_test = np.split(final, [int(len(final)*0.6), int(len(final)*0.85)])
-    
-    # reshape our data to add 1 extra dim for pooling later
-    Sxx_train_reshaped = reshape(Sxx_train)
-    Sxx_test_reshaped = reshape(Sxx_test)
-    Sxx_tune_reshaped = reshape(Sxx_tune)
-    final_train_reshaped = reshape(final_train)
-    # final_test_reshaped = reshape(final_test)
-    final_tune_reshaped = reshape(final_tune)
-    
-    return (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, final_train_reshaped, final_test, final_tune_reshaped, Sxx_test)
+    if Split:
+        ### Returns spectrograms split into training, testing, and validation
+        #split into 60% (train), 25% (tune), 15% (test)
+        Sxx_train, Sxx_tune, Sxx_test = np.split(spectrograms, [int(len(spectrograms)*0.6), int(len(spectrograms)*0.85)])
+        final_train, final_tune, final_test = np.split(final, [int(len(final)*0.6), int(len(final)*0.85)])
+        
+        # reshape our data to add 1 extra dim for pooling later
+        Sxx_train_reshaped = reshape(Sxx_train)
+        Sxx_test_reshaped = reshape(Sxx_test)
+        Sxx_tune_reshaped = reshape(Sxx_tune)
+        final_train_reshaped = reshape(final_train)
+        # final_test_reshaped = reshape(final_test)
+        final_tune_reshaped = reshape(final_tune)
+        
+        return (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, final_train_reshaped, final_test, final_tune_reshaped, Sxx_test)
+    else: 
+        ### Return spectrograms in one group        
+        return (reshape(spectrograms), final)
     
 def MSConv2D(initial, nodes, kernels):
     '''
@@ -216,15 +238,12 @@ if __name__ == '__main__':
     kernels = [3, 5, 7]
     nodes = 32
     
-    spectrograms = []
-    final = []
-
     file = h5py.File('/scratch/gpfs/ar0535/spectrogram_data.hdf5', 'r')
     
     # Get data
     (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, \
      final_train_reshaped, final_test, final_tune_reshaped, Sxx_test) = \
-         get_samples(file, num_samples, spectrograms, final)
+         get_samples(file, num_samples)
     
     # Initialize network
     input = layers.Input(shape = (256, 128, 1))
@@ -254,22 +273,9 @@ if __name__ == '__main__':
         validation_data=(Sxx_tune_reshaped, final_tune_reshaped),
     )
     
-    ### Pick random data to plot (Done here bc I ran into memory errors)
-    # predict and reformat
-    predictions = autoencoder.predict(Sxx_test_reshaped)
-    predictions = np.squeeze(predictions, axis=3)
-    
-    # restitch everything together to a list of spectrograms
-    noisy = unpatch(Sxx_test)
-    autoencoder_final = unpatch(predictions)
-    
-    n = 5 # Number of random test data spectrograms to plot
-    idx = np.random.randint(len(noisy), size=n)
-    plots1 = noisy[idx, :]
-    plots2 = autoencoder_final[idx, :]
-    
     ### Make some plots and save errors
-    post_process(file, autoencoder, hist, plots1, plots2, kernels)
+    n = 5 # Number of random test data spectrograms to plot
+    post_process(file, autoencoder, hist, kernels, n)
     
     # Close h5 data file
     file.close()
