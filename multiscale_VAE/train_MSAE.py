@@ -237,10 +237,10 @@ def MSConv2DTranspose(initial, nodes, kernels):
 
 if __name__ == '__main__':
     # Samples (will be 20*num_samples because 20 channels)
-    num_samples = 200
+    num_samples = 100
     
     # Multiscale w/ 1x1, 3x3, and 5x5 kernels
-    kernels = [1, 3, 5]
+    kernels = [5, 15, 25]
     nodes = 32
     
     file = h5py.File('/scratch/gpfs/ar0535/spectrogram_data.hdf5', 'r')
