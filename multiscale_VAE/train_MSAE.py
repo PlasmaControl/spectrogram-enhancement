@@ -107,7 +107,7 @@ def post_process(file, autoencoder, hist, kernels, n):
     Plot predictions for spectrograms and losses
     '''
     # Make directory to save model
-    data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/Ker_{kernels[0]}{kernels[1]}{kernels[2]}/'
+    data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/Ker_{kernels[0]}_{kernels[1]}_{kernels[2]}/'
     os.makedirs(data_path)
     
     # Save autoencoder Model
@@ -237,12 +237,12 @@ def MSConv2DTranspose(initial, nodes, kernels):
 
 if __name__ == '__main__':
     # Samples (will be 20*num_samples because 20 channels)
-    num_samples = 10
+    num_samples = 100
     
     # Multiscale w/ 1x1, 3x3, and 5x5 kernels
     kernels = [5, 15, 25]
     nodes = 32
-    ep = 2 # Epochs, 10 may be too few but 100 was overkill
+    ep = 50 # Epochs, 10 may be too few but 100 was overkill
     
     file = h5py.File('/scratch/gpfs/ar0535/spectrogram_data.hdf5', 'r')
     
