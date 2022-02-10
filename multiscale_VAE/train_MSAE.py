@@ -107,7 +107,7 @@ def post_process(file, autoencoder, hist, kernels, n):
     Plot predictions for spectrograms and losses
     '''
     # Make directory to save model
-    data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/Ker_{kernels[0]}_{kernels[1]}_{kernels[2]}/'
+    data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/Ker_{kernels[0]}_{kernels[1]}_{kernels[2]}_Node_{nodes[0]}_{nodes[1]}_{nodes[2]}/'
     os.makedirs(data_path)
     
     # Save autoencoder Model
@@ -240,8 +240,8 @@ if __name__ == '__main__':
     num_samples = 100
     
     # Multiscale w/ 1x1, 3x3, and 5x5 kernels
-    kernels = [3, 11, 31]
-    nodes = 32
+    kernels = [5, 15, 25]
+    nodes = [8, 16, 32]
     ep = 50 # Epochs, 10 may be too few but 100 was overkill
     
     file = h5py.File('/scratch/gpfs/ar0535/spectrogram_data.hdf5', 'r')
@@ -254,13 +254,13 @@ if __name__ == '__main__':
     # Initialize network
     input = layers.Input(shape = (256, 128, 1))
     
-    x = MSConv2D(input, nodes, kernels)
-    x = MSConv2D(x, nodes, kernels)
-    x = MSConv2D(x, nodes, kernels)
+    x = MSConv2D(input, nodes[0], kernels)
+    x = MSConv2D(x, nodes[1], kernels)
+    x = MSConv2D(x, nodes[2], kernels)
     
-    x = MSConv2DTranspose(x, nodes, kernels)
-    x = MSConv2DTranspose(x, nodes, kernels)
-    x = MSConv2DTranspose(x, nodes, kernels)
+    x = MSConv2DTranspose(x, nodes[2], kernels)
+    x = MSConv2DTranspose(x, nodes[1], kernels)
+    x = MSConv2DTranspose(x, nodes[0], kernels)
     
     # End with normal 3x3 Convolutional Layer
     x = layers.Conv2D(1, (3,3), activation="sigmoid", padding="same")(x)
@@ -281,7 +281,7 @@ if __name__ == '__main__':
     
     ### Make some plots and save errors
     n = 5 # Number of random test data spectrograms to plot
-    post_process(file, autoencoder, hist, kernels, n)
+    post_process(file, autoencoder, hist, kernels, n, nodes)
     
     # Close h5 data file
     file.close()
