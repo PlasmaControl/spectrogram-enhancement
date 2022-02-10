@@ -170,7 +170,7 @@ def get_samples(file, num_samples, Split=True):
         if Split:
             chns = range(20)
         else:
-            chns = range(10,12)
+            chns = range(10,13)
         
         for chn in chns:
             name = fname+'/chn_'+str(chn+1)
@@ -237,11 +237,12 @@ def MSConv2DTranspose(initial, nodes, kernels):
 
 if __name__ == '__main__':
     # Samples (will be 20*num_samples because 20 channels)
-    num_samples = 100
+    num_samples = 10
     
     # Multiscale w/ 1x1, 3x3, and 5x5 kernels
     kernels = [5, 15, 25]
     nodes = 32
+    ep = 2 # Epochs, 10 may be too few but 100 was overkill
     
     file = h5py.File('/scratch/gpfs/ar0535/spectrogram_data.hdf5', 'r')
     
@@ -268,7 +269,6 @@ if __name__ == '__main__':
     autoencoder.compile(optimizer="adam", loss="binary_crossentropy")
     autoencoder.summary()
 
-    ep = 50 # Epochs, 10 may be too few but 100 was overkill
     hist = autoencoder.fit(
         x=Sxx_train_reshaped,
         y=final_train_reshaped,
