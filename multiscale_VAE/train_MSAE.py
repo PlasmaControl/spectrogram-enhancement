@@ -240,7 +240,7 @@ if __name__ == '__main__':
     num_samples = 100
     
     # Multiscale w/ 1x1, 3x3, and 5x5 kernels
-    kernels = [5, 15, 25]
+    kernels = [3, 11, 31]
     nodes = [8, 16, 32]
     ep = 50 # Epochs, 10 may be too few but 100 was overkill
     
