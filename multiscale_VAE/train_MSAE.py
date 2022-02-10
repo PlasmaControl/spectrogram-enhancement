@@ -207,17 +207,17 @@ def MSConv2D(initial, nodes, kernels):
     # Kernel 1
     x1 = layers.Conv2D(nodes, (kernels[0],kernels[0]), activation="relu", padding="same")(initial)
     x1 = layers.MaxPooling2D((2, 2), padding="same")(x1)
-    # x1 = layers.BatchNormalization()(x1)
+    x1 = layers.BatchNormalization()(x1)
     
     # Kernel 2
     x2 = layers.Conv2D(nodes, (kernels[1],kernels[1]), activation="relu", padding="same")(initial)
     x2 = layers.MaxPooling2D((2, 2), padding="same")(x2)
-    # x2 = layers.BatchNormalization()(x2)
+    x2 = layers.BatchNormalization()(x2)
     
     # Kernel 3
     x3 = layers.Conv2D(nodes, (kernels[2],kernels[2]), activation="relu", padding="same")(initial)
     x3 = layers.MaxPooling2D((2, 2), padding="same")(x3)
-    # x3 = layers.BatchNormalization()(x3)
+    x3 = layers.BatchNormalization()(x3)
     
     # Sum together
     return layers.Add()([x1, x2, x3])
@@ -228,15 +228,15 @@ def MSConv2DTranspose(initial, nodes, kernels):
     '''
     # Kernel 1
     x1 = layers.Conv2DTranspose(nodes, (kernels[0],kernels[0]), strides=2, activation="relu", padding="same")(initial)
-    # x1 = layers.BatchNormalization()(x1)
+    x1 = layers.BatchNormalization()(x1)
     
     # Kernel 2
     x2 = layers.Conv2DTranspose(nodes, (kernels[1],kernels[1]), strides=2, activation="relu", padding="same")(initial)
-    # x2 = layers.BatchNormalization()(x2)
+    x2 = layers.BatchNormalization()(x2)
 
     # Kernel 3
     x3 = layers.Conv2DTranspose(nodes, (kernels[2],kernels[2]), strides=2, activation="relu", padding="same")(initial)
-    # x3 = layers.BatchNormalization()(x3)
+    x3 = layers.BatchNormalization()(x3)
     
     # Sum together
     return layers.Add()([x1, x2, x3])
@@ -247,7 +247,7 @@ if __name__ == '__main__':
     
     # Multiscale w/ 1x1, 3x3, and 5x5 kernels
     kernels = [5, 15, 25]
-    nodes = [8, 16, 32]
+    nodes = [16, 32, 32]
     ep = 50 # Epochs, 10 may be too few but 100 was overkill
     
     file = h5py.File('/scratch/gpfs/ar0535/spectrogram_data.hdf5', 'r')
