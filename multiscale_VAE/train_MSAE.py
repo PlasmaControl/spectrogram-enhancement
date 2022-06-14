@@ -1,4 +1,3 @@
-from urllib import response
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
@@ -9,6 +8,7 @@ from patchify import patchify, unpatchify
 
 from keras import layers
 from keras.models import Model
+from tensorflow import keras
 
 # patches all the strips together to 1 spectrogram
 def patch(arr):
@@ -139,9 +139,9 @@ def post_process(file, autoencoder, hist, kernels, n, nodes):
     np.savetxt(data_path+'val_loss.txt', val_loss)
 
 
-    chn_num = 20 # Total channel number
+    chn_num = range(10,13) # Channels to plot
     # Example prediction plot
-    for i in range(chn_num):
+    for i in chn_num:
         # Load specific channel data
         dset = file[f'ece_{shotn}'][f'chn_{i+1}']
         
@@ -149,13 +149,27 @@ def post_process(file, autoencoder, hist, kernels, n, nodes):
         noisy = []
         noisy.append(np.array(dset['spec']))
         noisy = patch(noisy)
+        noisy_reshaped = reshape(noisy)
+        noisy_normalized = normalize_samples(noisy_reshaped)
         
         # Predict spectrograms
-        predictions = autoencoder.predict(reshape(noisy))
+        predictions = autoencoder.predict(noisy)
         
         # Plot raw, processed, and predicted spectrograms
-        if (i+1) in range(10,13):
-            plt_spec_shot(dset, predictions, noisy, shotn, i+1, data_path+f'plot_chn_{i+1}.png')
+        plt_spec_shot(dset, predictions, noisy, shotn, i+1, data_path+f'plot_chn_{i+1}.png')
+
+def normalize_samples(Sxx):
+    '''
+    Use single BN layer model to center spectrograms at 0 with small variance
+    '''
+    # Load normalizer
+    normalizer = keras.models.load_model('/scratch/gpfs/ar0535/spec_model_data/normalizers/ece_norm')
+    
+    # Go sample by sample
+    for i in range(np.shape(Sxx)[0]):
+        Sxx[i:i+1] = normalizer.predict(Sxx[i:i+1])
+        
+    return Sxx            
 
 # Get random samples to train model
 def get_samples(file, num_samples, Split=True):
@@ -185,20 +199,25 @@ def get_samples(file, num_samples, Split=True):
         ### Returns spectrograms split into training, testing, and validation
         #split into 60% (train), 25% (tune), 15% (test)
         Sxx_train, Sxx_tune, Sxx_test = np.split(spectrograms, [int(len(spectrograms)*0.6), int(len(spectrograms)*0.85)])
-        final_train, final_tune, final_test = np.split(final, [int(len(final)*0.6), int(len(final)*0.85)])
+        final_train, final_tune, _ = np.split(final, [int(len(final)*0.6), int(len(final)*0.85)])
         
         # reshape our data to add 1 extra dim for pooling later
         Sxx_train_reshaped = reshape(Sxx_train)
         Sxx_test_reshaped = reshape(Sxx_test)
         Sxx_tune_reshaped = reshape(Sxx_tune)
         final_train_reshaped = reshape(final_train)
-        # final_test_reshaped = reshape(final_test)
         final_tune_reshaped = reshape(final_tune)
         
-        return (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, final_train_reshaped, final_test, final_tune_reshaped, Sxx_test)
+        # Normalize data with trained normalizer
+        Sxx_train_reshaped = normalize_samples(Sxx_train_reshaped)
+        Sxx_test_reshaped = normalize_samples(Sxx_test_reshaped)
+        Sxx_tune_reshaped = normalize_samples(Sxx_tune_reshaped)
+        
+        return (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, final_train_reshaped, final_tune_reshaped)
     else: 
-        ### Return spectrograms in one group        
-        return (reshape(spectrograms), final)
+        ### Return spectrograms in one group   
+        spectrograms = normalize_samples(reshape(spectrograms))
+        return (spectrograms, final)
     
 def MSConv2D(initial, nodes, kernels):
     '''
@@ -240,54 +259,51 @@ def MSConv2DTranspose(initial, nodes, kernels):
     
     # Sum together
     return layers.Add()([x1, x2, x3])
+    
 
 if __name__ == '__main__':
     # Samples (will be 20*num_samples because 20 channels)
     num_samples = 100
     
-    # Multiscale w/ 1x1, 3x3, and 5x5 kernels
-    kernels = [3, 11, 31]
-    nodes = [16, 32, 32]
+    # Multiscale w/ 5x5, 15x15, and 25x25 kernels
+    kernels = [5, 15, 25]
+    nodes = [8, 16, 32]
     ep = 50 # Epochs, 10 may be too few but 100 was overkill
     
-    file = h5py.File('/scratch/gpfs/ar0535/spectrogram_data.hdf5', 'r')
-    
-    # Get data
-    (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, \
-     final_train_reshaped, final_test, final_tune_reshaped, Sxx_test) = \
-         get_samples(file, num_samples)
-    
-    # Initialize network
-    input = layers.Input(shape = (256, 128, 1))
-    
-    x = MSConv2D(input, nodes[0], kernels)
-    x = MSConv2D(x, nodes[1], kernels)
-    x = MSConv2D(x, nodes[2], kernels)
-    
-    x = MSConv2DTranspose(x, nodes[2], kernels)
-    x = MSConv2DTranspose(x, nodes[1], kernels)
-    x = MSConv2DTranspose(x, nodes[0], kernels)
-    
-    # End with normal 3x3 Convolutional Layer
-    x = layers.Conv2D(1, (3,3), activation="sigmoid", padding="same")(x)
+    with h5py.File('/scratch/gpfs/ar0535/spectrogram_data.hdf5', 'r') as file:
+        # Get data (uses normalizer model to normalize ECE data)
+        (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, \
+         final_train_reshaped, final_tune_reshaped) = \
+             get_samples(file, num_samples)
 
-    autoencoder = Model(input, x)
-    autoencoder.compile(optimizer="adam", loss="binary_crossentropy")
-    autoencoder.summary()
+        # Initialize network
+        input = layers.Input(shape = (256, 128, 1))
 
-    hist = autoencoder.fit(
-        x=Sxx_train_reshaped,
-        y=final_train_reshaped,
-        epochs=ep,
-        batch_size=32,
-        shuffle=True,
-        validation_data=(Sxx_tune_reshaped, final_tune_reshaped),
-        verbose=2,
-    )
-    
-    ### Make some plots and save errors
-    n = 5 # Number of random test data spectrograms to plot
-    post_process(file, autoencoder, hist, kernels, n, nodes)
-    
-    # Close h5 data file
-    file.close()
+        x = MSConv2D(input, nodes[0], kernels)
+        x = MSConv2D(x, nodes[1], kernels)
+        x = MSConv2D(x, nodes[2], kernels)
+
+        x = MSConv2DTranspose(x, nodes[2], kernels)
+        x = MSConv2DTranspose(x, nodes[1], kernels)
+        x = MSConv2DTranspose(x, nodes[0], kernels)
+
+        # End with normal 3x3 Convolutional Layer
+        x = layers.Conv2D(1, (3,3), activation="sigmoid", padding="same")(x)
+
+        autoencoder = Model(input, x)
+        autoencoder.compile(optimizer="adam", loss="binary_crossentropy")
+        autoencoder.summary()
+
+        hist = autoencoder.fit(
+            x=Sxx_train_reshaped,
+            y=final_train_reshaped,
+            epochs=ep,
+            batch_size=32,
+            shuffle=True,
+            validation_data=(Sxx_tune_reshaped, final_tune_reshaped),
+            verbose=2,
+        )
+
+        ### Make some plots and save errors
+        n = 5 # Number of random test data spectrograms to plot
+        post_process(file, autoencoder, hist, kernels, n, nodes)
