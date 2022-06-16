@@ -1,50 +1,89 @@
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
-import h5py
+import h5py as h5
 import random
 import os
-from patchify import patchify, unpatchify
+import time
 
 from keras import layers
 from keras.models import Model
 from tensorflow import keras
 
+import tensorflow as tf
+import datetime
+
 # patches all the strips together to 1 spectrogram
-def patch(arr):
-    all_patches = np.empty((len(arr)* 30, 256, 128))
+def patch(arr, window_size, num_strips):
+    '''
+    Takes an array of full spectrograms and returns an array of 
+    time slices of the spectrograms
+    
+    arr has dimensions: 
+    (# full spectrograms, 256 freq, total times: 3905 normally)
+    
+    all_patches has dimensions:
+    (# strips * # full spectrograms, 256 freq, time width of strips) 
+    
+    Note that some of the spectrogram may be cut if time width * # strips != 3905
+    '''
+    
+    # Unpack sizes and find number of strips
+    height = window_size[0]
+    width  = window_size[1]
+    length = np.shape(arr)[2]
+    num_specs = np.shape(arr)[0]
+
+    assert num_strips == np.floor(length / width)
+    
+    all_patches = np.empty((num_specs * num_strips, height, width))
     for i in range(len(arr)):
-        patches = patchify(arr[i], (256, 128), step=128)
-        
-        for x in range(30):
-            all_patches[(x + 30 * i)] = patches[0][x]
+        for strip in range(num_strips):
+            all_patches[strip + num_strips * i] = arr[i][:,strip*width:(strip+1)*width]
     
     return all_patches
 
 # splits spectrogram into strips
-def unpatch(arr):
+def unpatch(arr, window_size, num_strips):
+    '''
+    Takes an array of spectrogram slices and returns an array of the full spectrograms.
+    
+    arr has dimensions: 
+    (# strips * # full spectrograms, 256 freq, time width of strips) 
+    
+    all_spectrograms has dimensions:
+    (# full spectrograms, 256 freq, time width of strips * # strips)
+    
+    Note time dimension may be shrunken if time width * # strips != 3905
+    '''
+    height = window_size[0]
+    width  = window_size[1]
+    num_specs = int(len(arr) / num_strips)
+    
+    assert num_specs * num_strips == len(arr)
+    
     all_spectrograms = []
-    for i in range(int(len(arr) / 30)):
-        Sxx = []
-        for x in range(30):
-            Sxx.append(arr[x + 30 * i])
-        
-        y=[Sxx]
-        reconstructed = unpatchify(np.array(y), (256, 3840))
+    for spec in range(num_specs):
+        reconstructed = np.empty((256, num_strips * width))
+        for strip in range(num_strips):
+            reconstructed[:,strip*width:(strip+1)*width] = arr[strip + num_strips * spec]
+
         all_spectrograms.append(reconstructed)
     return np.array(all_spectrograms)
 
 # reshapes the data
 def reshape(arr):
-    arr = np.reshape(arr, (len(arr), 256, 128, 1))
+    shape = np.shape(arr[0])
+    arr = np.reshape(arr, (len(arr), shape[0], shape[1], 1))
     return arr
 
 # displays Sxx and final
-def display(noisy, processed, predictions, datapath, dset, n):
-    t = np.array(dset['t'])[:3840]
-    f = (np.array(dset['f'])/1000)+1
+def display(noisy, processed, predictions, datapath, dset, n, window_size, num_strips):
+    tmax = num_strips * window_size[1]
+    t = np.array(dset['time'])[:tmax]
+    f = (np.array(dset['freq'])/1000)+1
     
-    for i in range(n*3): # 3x b/c 3 channels
+    for i in range(n):
         # Make plot 
         fig = plt.figure(figsize=(8,12))
         grd = gridspec.GridSpec(ncols=1, nrows=3, figure=fig)
@@ -57,34 +96,35 @@ def display(noisy, processed, predictions, datapath, dset, n):
         ax[1] = fig.add_subplot(grd[1])
         ax[1].pcolormesh(t,f,predictions[i,:,:],cmap='hot',shading='gouraud')
         _=plt.ylabel('Predicted Denoised (kHz)')
-
+        
         ax[2] = fig.add_subplot(grd[2])
         ax[2].pcolormesh(t,f,processed[i,:,:],cmap='hot',shading='gouraud')
         _=plt.ylabel('Pipeline (kHz)')
 
         fname = datapath+'ex_spec'+str(i)+'.png'
         plt.savefig(fname)
+        # plt.show()
 
 # Plots a spectrogram shot
-def plt_spec_shot(dset, predictions, noisy, shotn, i, plot_name):
+def plt_spec_shot(dset, predictions, noisy, caption, plot_name, window_size, num_strips):
     # Read data from hdf5 file and change shape of raw spectrogram
     pipeline = []
     pipeline.append(np.array(dset['pipeline_out']))
 
     # Change shape of predictions and processed data for viewing
     predictions = np.squeeze(predictions, axis=3)
-    noisy = unpatch(noisy)[0,:,:]
-    predictions = unpatch(predictions)[0,:,:]
-    processed = unpatch(patch(pipeline))[0,:,:]
+    noisy = unpatch(noisy, window_size, num_strips)[0,:,:]
+    predictions = unpatch(predictions, window_size, num_strips)[0,:,:]
+    processed = unpatch(patch(pipeline, window_size, num_strips), window_size, num_strips)[0,:,:]
     
-    t = np.array(dset['t'])[:3840]
-    f = (np.array(dset['f'])/1000)+1
+    tmax = num_strips*window_size[1]
+    t = np.array(dset['time'])[:tmax]
+    f = (np.array(dset['freq'])/1000)+1
     
     # Make plot 
     fig = plt.figure(figsize=(8,12))
     grd = gridspec.GridSpec(ncols=1, nrows=3, figure=fig)
     ax=[None] * 3
-    caption = 'shot# %s, channel %i' % (shotn, i)
     
     ax[0] = fig.add_subplot(grd[0])
     ax[0].pcolormesh(t,f,noisy,cmap='hot',shading='gouraud')
@@ -99,125 +139,8 @@ def plt_spec_shot(dset, predictions, noisy, shotn, i, plot_name):
     ax[2].pcolormesh(t,f,processed,cmap='hot',shading='gouraud')
     _=plt.ylabel('Pipeline (kHz)')
     
+    # plt.show()
     plt.savefig(plot_name)
-
-# saves plots and losses
-def post_process(file, autoencoder, hist, kernels, n, nodes):
-    '''
-    Plot predictions for spectrograms and losses
-    '''
-    # Make directory to save model
-    data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/Ker_{kernels[0]}_{kernels[1]}_{kernels[2]}_Node_{nodes[0]}_{nodes[1]}_{nodes[2]}/'
-    os.makedirs(data_path)
-    
-    # Save autoencoder Model
-    autoencoder.save(data_path+'keras_model')
-    
-    raw_specs, pipeline_specs = get_samples(file, n, Split=False)
-    
-    ### Pick random data to plot (Done here bc I ran into memory errors)
-    # predict and reformat
-    predictions = autoencoder.predict(raw_specs)
-    predictions = np.squeeze(predictions, axis=3)
-    
-    # restitch everything together to a list of spectrograms
-    raw_specs_reshaped = np.squeeze(raw_specs, axis=3)
-    noisy = unpatch(raw_specs_reshaped)
-    autoencoder_final = unpatch(predictions)
-    pipeline_specs = unpatch(pipeline_specs)
-    
-    # Sample data set for general time and freq data (axis for plotting)
-    shotn = 176053 # Shot we decide to look at
-    dset = file[f'ece_{shotn}']['chn_1']
-    display(noisy, pipeline_specs, autoencoder_final, data_path, dset, n)
-    
-    plt.clf()
-    # Save validation loss and validation loss plot
-    val_loss = hist.history['val_loss']
-    plt.plot(range(ep), val_loss)
-    plt.savefig(data_path+'val_loss.png')
-    np.savetxt(data_path+'val_loss.txt', val_loss)
-
-
-    chn_num = range(10,13) # Channels to plot
-    # Example prediction plot
-    for i in chn_num:
-        # Load specific channel data
-        dset = file[f'ece_{shotn}'][f'chn_{i+1}']
-        
-        # Read raw data from hdf5 file and change shape of raw spectrogram
-        noisy = []
-        noisy.append(np.array(dset['spec']))
-        noisy = patch(noisy)
-        noisy_reshaped = reshape(noisy)
-        noisy_normalized = normalize_samples(noisy_reshaped)
-        
-        # Predict spectrograms
-        predictions = autoencoder.predict(noisy)
-        
-        # Plot raw, processed, and predicted spectrograms
-        plt_spec_shot(dset, predictions, noisy, shotn, i+1, data_path+f'plot_chn_{i+1}.png')
-
-def normalize_samples(Sxx):
-    '''
-    Use single BN layer model to center spectrograms at 0 with small variance
-    '''
-    # Load normalizer
-    normalizer = keras.models.load_model('/scratch/gpfs/ar0535/spec_model_data/normalizers/ece_norm')
-    
-    # Go sample by sample
-    for i in range(np.shape(Sxx)[0]):
-        Sxx[i:i+1] = normalizer.predict(Sxx[i:i+1])
-        
-    return Sxx            
-
-# Get random samples to train model
-def get_samples(file, num_samples, Split=True):
-    spectrograms = []
-    final = []
-    
-    random_sample = random.sample(file.keys(), num_samples)
-
-    for fname in random_sample:
-        shotn = fname[fname.rfind('_')+1:fname.rfind('.')]
-
-        if Split:
-            chns = range(20)
-        else:
-            chns = range(10,13)
-        
-        for chn in chns:
-            name = fname+'/chn_'+str(chn+1)
-            spectrograms.append(np.array(file[name]['spec']))     
-            final.append(np.array(file[name]['pipeline_out']))
-    
-    # Change shape so that time length is 128 points
-    spectrograms = patch(spectrograms)
-    final = patch(final)
-
-    if Split:
-        ### Returns spectrograms split into training, testing, and validation
-        #split into 60% (train), 25% (tune), 15% (test)
-        Sxx_train, Sxx_tune, Sxx_test = np.split(spectrograms, [int(len(spectrograms)*0.6), int(len(spectrograms)*0.85)])
-        final_train, final_tune, _ = np.split(final, [int(len(final)*0.6), int(len(final)*0.85)])
-        
-        # reshape our data to add 1 extra dim for pooling later
-        Sxx_train_reshaped = reshape(Sxx_train)
-        Sxx_test_reshaped = reshape(Sxx_test)
-        Sxx_tune_reshaped = reshape(Sxx_tune)
-        final_train_reshaped = reshape(final_train)
-        final_tune_reshaped = reshape(final_tune)
-        
-        # Normalize data with trained normalizer
-        Sxx_train_reshaped = normalize_samples(Sxx_train_reshaped)
-        Sxx_test_reshaped = normalize_samples(Sxx_test_reshaped)
-        Sxx_tune_reshaped = normalize_samples(Sxx_tune_reshaped)
-        
-        return (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, final_train_reshaped, final_tune_reshaped)
-    else: 
-        ### Return spectrograms in one group   
-        spectrograms = normalize_samples(reshape(spectrograms))
-        return (spectrograms, final)
     
 def MSConv2D(initial, nodes, kernels):
     '''
@@ -226,17 +149,14 @@ def MSConv2D(initial, nodes, kernels):
     # Kernel 1
     x1 = layers.Conv2D(nodes, (kernels[0],kernels[0]), activation="relu", padding="same")(initial)
     x1 = layers.MaxPooling2D((2, 2), padding="same")(x1)
-    x1 = layers.BatchNormalization()(x1)
     
     # Kernel 2
     x2 = layers.Conv2D(nodes, (kernels[1],kernels[1]), activation="relu", padding="same")(initial)
     x2 = layers.MaxPooling2D((2, 2), padding="same")(x2)
-    x2 = layers.BatchNormalization()(x2)
     
     # Kernel 3
     x3 = layers.Conv2D(nodes, (kernels[2],kernels[2]), activation="relu", padding="same")(initial)
     x3 = layers.MaxPooling2D((2, 2), padding="same")(x3)
-    x3 = layers.BatchNormalization()(x3)
     
     # Sum together
     return layers.Add()([x1, x2, x3])
@@ -247,37 +167,137 @@ def MSConv2DTranspose(initial, nodes, kernels):
     '''
     # Kernel 1
     x1 = layers.Conv2DTranspose(nodes, (kernels[0],kernels[0]), strides=2, activation="relu", padding="same")(initial)
-    x1 = layers.BatchNormalization()(x1)
     
     # Kernel 2
     x2 = layers.Conv2DTranspose(nodes, (kernels[1],kernels[1]), strides=2, activation="relu", padding="same")(initial)
-    x2 = layers.BatchNormalization()(x2)
-
+    
     # Kernel 3
     x3 = layers.Conv2DTranspose(nodes, (kernels[2],kernels[2]), strides=2, activation="relu", padding="same")(initial)
-    x3 = layers.BatchNormalization()(x3)
     
     # Sum together
     return layers.Add()([x1, x2, x3])
+
+# Get random samples to train model
+def get_samples(file, num_samples, window_size, num_strips, Split=True):
+    spectrograms = []
+    final = []
+    
+    random_sample = random.sample(file.keys(), num_samples)
+
+    for shotn in random_sample:
+        for chn in range(20):
+            if f'chn_{chn+1}' in file[shotn]['ece'].keys():
+                spectrograms.append(np.array(file[shotn]['ece'][f'chn_{chn+1}']['spectrogram']))     
+                final.append(np.array(file[shotn]['ece'][f'chn_{chn+1}']['pipeline_out']))
+    
+    # Change shape so that time length is 128 points
+    spectrograms = patch(spectrograms, window_size, num_strips)
+    final = patch(final, window_size, num_strips)
+
+    if Split:
+        ### Returns spectrograms split into training, testing, and validation
+        #split into 60% (train), 25% (tune), 15% (test)
+        Sxx_train, Sxx_tune, Sxx_test = np.split(spectrograms, [int(len(spectrograms)*0.6), int(len(spectrograms)*0.85)])
+        final_train, final_tune, final_test = np.split(final, [int(len(final)*0.6), int(len(final)*0.85)])
+        
+        # reshape our data to add 1 extra dim for pooling later
+        Sxx_train_reshaped = reshape(Sxx_train)
+        Sxx_test_reshaped = reshape(Sxx_test)
+        Sxx_tune_reshaped = reshape(Sxx_tune)
+        final_train_reshaped = reshape(final_train)
+        # final_test_reshaped = reshape(final_test)
+        final_tune_reshaped = reshape(final_tune)
+        
+        return (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, final_train_reshaped, final_test, final_tune_reshaped, Sxx_test)
+    else: 
+        ### Return spectrograms in one group
+        return (reshape(spectrograms), final)
+
+# saves plots and losses
+def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips):
+    '''
+    Plot predictions for spectrograms and losses
+    '''
+    # Make directory to save model
+    data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/t_width_{window_size[1]}/Ker_{kernels[0]}{kernels[1]}{kernels[2]}/'
+    os.makedirs(data_path)
+    
+    # Save autoencoder Model
+    autoencoder.save(data_path+'keras_model')
+    
+    raw_specs, pipeline_specs = get_samples(file, n, window_size, num_strips, Split=False)
+    
+    ### Pick random data to plot (Done here bc I ran into memory errors)
+    # predict and reformat
+    predictions = autoencoder.predict(raw_specs)
+    predictions = np.squeeze(predictions, axis=3)
+    
+    # restitch everything together to a list of spectrograms
+    raw_specs_reshaped = np.squeeze(raw_specs, axis=3)
+    noisy = unpatch(raw_specs_reshaped, window_size, num_strips)
+    autoencoder_final = unpatch(predictions, window_size, num_strips)
+    pipeline_specs = unpatch(pipeline_specs, window_size, num_strips)
+    
+    # Sample data set for general time and freq data (axis for plotting)
+    shotn = '176053' # Shot we decide to look at
+    dset = file[shotn]['ece']['chn_1']
+    display(noisy, pipeline_specs, autoencoder_final, data_path, dset, n, window_size, num_strips)
+    
+    plt.clf()
+    # Save validation loss and validation loss plot
+    val_loss = hist.history['val_loss']
+    train_loss = hist.history['loss']
+    plt.plot(train_loss)
+    plt.plot(val_loss)
+    plt.title('Model Loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['train', 'test'], loc='upper right')
+    plt.show()
+    plt.savefig(data_path+'val_loss.png')
+
+
+    chn_num = 20 # Total channel number
+    # Example prediction plot
+    for i in range(chn_num):
+        # Load specific channel data
+        dset = file[shotn]['ece'][f'chn_{i+1}']
+        
+        # Read raw data from hdf5 file and change shape of raw spectrogram
+        noisy = []
+        noisy.append(np.array(dset['spectrogram']))
+        noisy = patch(noisy, window_size, num_strips)
+        
+        # Predict spectrograms
+        predictions = autoencoder.predict(reshape(noisy))
+        
+        # Plot raw, processed, and predicted spectrograms
+        if i in range(10,13):
+            caption = caption = 'shot# '+ shotn +f', channel {i+1}'
+            plt_spec_shot(dset, predictions, noisy, caption, data_path+f'plot_chn_{i+1}.png', window_size, num_strips)
     
 
 if __name__ == '__main__':
-    # Samples (will be 20*num_samples because 20 channels)
-    num_samples = 100
+    start = time.time()
     
+    # Samples (will be 20*num_samples because 20 channels)
+    num_samples = 5
+
     # Multiscale w/ 5x5, 15x15, and 25x25 kernels
     kernels = [5, 15, 25]
     nodes = [8, 16, 32]
-    ep = 50 # Epochs, 10 may be too few but 100 was overkill
-    
-    with h5py.File('/scratch/gpfs/ar0535/spectrogram_data.hdf5', 'r') as file:
+    ep = 2 # Epochs, 10 may be too few but 100 was overkill
+
+    window_size = (256, 125)
+    num_strips = int(np.floor(3905 / window_size[1]))
+
+    with h5.File('/projects/EKOLEMEN/ae_andy/AE_data.h5', 'r') as file:
         # Get data (uses normalizer model to normalize ECE data)
-        (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, \
-         final_train_reshaped, final_tune_reshaped) = \
-             get_samples(file, num_samples)
+        (Sxx_train_reshaped, _, Sxx_tune_reshaped, final_train_reshaped, 
+         _, final_tune_reshaped, _) = get_samples(file, num_samples, window_size, num_strips)
 
         # Initialize network
-        input = layers.Input(shape = (256, 128, 1))
+        input = layers.Input(shape = (window_size[0], window_size[1], 1))
 
         x = MSConv2D(input, nodes[0], kernels)
         x = MSConv2D(x, nodes[1], kernels)
@@ -306,4 +326,7 @@ if __name__ == '__main__':
 
         ### Make some plots and save errors
         n = 5 # Number of random test data spectrograms to plot
-        post_process(file, autoencoder, hist, kernels, n, nodes)
+        post_process(file, autoencoder, hist, kernels, n, window_size, num_strips)
+        
+        mins = int(np.floor((time.time() - start) / 60.0))
+        print(f'Total time: {mins} min', flush=True)
