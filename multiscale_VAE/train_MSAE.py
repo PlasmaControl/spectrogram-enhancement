@@ -286,7 +286,7 @@ if __name__ == '__main__':
     # Multiscale w/ 5x5, 15x15, and 25x25 kernels
     kernels = [5, 15, 25]
     nodes = [8, 16, 32]
-    ep = 2 # Epochs, 10 may be too few but 100 was overkill
+    ep = 20 # Epochs, 10 may be too few but 100 was overkill
 
     window_size = (256, 125)
     num_strips = int(np.floor(3905 / window_size[1]))
@@ -314,6 +314,9 @@ if __name__ == '__main__':
         autoencoder.compile(optimizer="adam", loss="binary_crossentropy")
         autoencoder.summary()
 
+        log_dir = "/scratch/gpfs/ar0535/logs/Multiscale/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+        
         hist = autoencoder.fit(
             x=Sxx_train_reshaped,
             y=final_train_reshaped,
@@ -322,6 +325,7 @@ if __name__ == '__main__':
             shuffle=True,
             validation_data=(Sxx_tune_reshaped, final_tune_reshaped),
             verbose=2,
+            callbacks=[tensorboard_callback],
         )
 
         ### Make some plots and save errors
