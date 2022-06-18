@@ -2,16 +2,20 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
 import h5py as h5
-import random
 import os
 import time
+import random
+import io
 
 from keras import layers
 from keras.models import Model
+import scipy as sp
 from tensorflow import keras
 
 import tensorflow as tf
-import datetime
+from tensorboard.plugins.hparams import api as hp
+
+JOB_ID = int(os.environ["SLURM_ARRAY_TASK_ID"])
 
 # patches all the strips together to 1 spectrogram
 def patch(arr, window_size, num_strips):
@@ -140,7 +144,9 @@ def plt_spec_shot(dset, predictions, noisy, caption, plot_name, window_size, num
     _=plt.ylabel('Pipeline (kHz)')
     
     # plt.show()
-    plt.savefig(plot_name)
+    # plt.savefig(plot_name)
+    
+    return fig
     
 def MSConv2D(initial, nodes, kernels):
     '''
@@ -195,6 +201,13 @@ def get_samples(file, num_samples, window_size, num_strips, Split=True):
     final = patch(final, window_size, num_strips)
 
     if Split:
+        # Shuffle slices to remove errors from different shots
+        seed = 239517
+        np.random.RandomState(seed)
+        np.random.shuffle(spectrograms)
+        np.random.RandomState(seed)
+        np.random.shuffle(final)
+                
         ### Returns spectrograms split into training, testing, and validation
         #split into 60% (train), 25% (tune), 15% (test)
         Sxx_train, Sxx_tune, Sxx_test = np.split(spectrograms, [int(len(spectrograms)*0.6), int(len(spectrograms)*0.85)])
@@ -225,6 +238,7 @@ def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips):
     # Save autoencoder Model
     autoencoder.save(data_path+'keras_model')
     
+    '''
     raw_specs, pipeline_specs = get_samples(file, n, window_size, num_strips, Split=False)
     
     ### Pick random data to plot (Done here bc I ran into memory errors)
@@ -243,6 +257,7 @@ def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips):
     dset = file[shotn]['ece']['chn_1']
     display(noisy, pipeline_specs, autoencoder_final, data_path, dset, n, window_size, num_strips)
     
+    
     plt.clf()
     # Save validation loss and validation loss plot
     val_loss = hist.history['val_loss']
@@ -255,11 +270,14 @@ def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips):
     plt.legend(['train', 'test'], loc='upper right')
     plt.show()
     plt.savefig(data_path+'val_loss.png')
+    '''
 
-
-    chn_num = 20 # Total channel number
+    shotn = '176053' # Shot we decide to look at
+    dset = file[shotn]['ece']['chn_1']
     # Example prediction plot
-    for i in range(chn_num):
+    logdir = f"/scratch/gpfs/ar0535/logs/Multiscale/logs/{JOB_ID}/plots/"
+    file_writer = tf.summary.create_file_writer(logdir)
+    for i in range(10, 13):
         # Load specific channel data
         dset = file[shotn]['ece'][f'chn_{i+1}']
         
@@ -272,23 +290,81 @@ def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips):
         predictions = autoencoder.predict(reshape(noisy))
         
         # Plot raw, processed, and predicted spectrograms
-        if i in range(10,13):
-            caption = caption = 'shot# '+ shotn +f', channel {i+1}'
-            plt_spec_shot(dset, predictions, noisy, caption, data_path+f'plot_chn_{i+1}.png', window_size, num_strips)
+        caption = caption = 'shot# '+ shotn +f', channel {i+1}'
+        fig = plt_spec_shot(dset, predictions, noisy, caption, data_path+f'plot_chn_{i+1}.png', window_size, num_strips)
+        
+        # Save plot in log
+        with file_writer.as_default():
+            tf.summary.image(f"chn_{i+1}", plot_to_image(fig), step=0)
+            
     
+def plot_to_image(figure):
+  """Converts the matplotlib plot specified by 'figure' to a PNG image and
+  returns it. The supplied figure is closed and inaccessible after this call."""
+  # Save the plot to a PNG in memory.
+  buf = io.BytesIO()
+  plt.savefig(buf, format='png')
+  # Closing the figure prevents it from being displayed directly inside
+  # the notebook.
+  plt.close(figure)
+  buf.seek(0)
+  # Convert PNG buffer to TF image
+  image = tf.image.decode_png(buf.getvalue(), channels=4)
+  # Add the batch dimension
+  image = tf.expand_dims(image, 0)
+  return image
+
+def get_ker(KER_IDX):
+    if KER_IDX == 0:
+        return [3, 5, 7]
+    elif KER_IDX == 1:
+        return [5, 9, 11]
+    elif KER_IDX == 2:
+        return [7, 11, 15]
+    elif KER_IDX == 3:
+        return [7, 15, 25]
+    else:
+        raise(ValueError('KER_IDX invalid'))
+
+WIDTH_VALS = [4, 8, 16, 32]
+KER_VALS = [7, 11, 15, 25]
+NODE_VALS  = [2, 4, 8]
+
+# TEST
+WIDTH_VALS = [4, 8,]
+KER_VALS = [7, 11]
+NODE_VALS  = [2, 4]
+
+# Get from job array ID
+WIDTH_IDX = JOB_ID % 4
+KER_IDX   = int(JOB_ID / 4) % 4
+NODE_IDX  = int(JOB_ID / 16) % 3
+
+# Get from job array ID TEST
+WIDTH_IDX = JOB_ID % 2
+KER_IDX   = int(JOB_ID / 2) % 2
+NODE_IDX  = int(JOB_ID / 4) % 2
+
+HP_T_WIDTH  = hp.HParam('t_width',  hp.Discrete(WIDTH_VALS))
+HP_KER_MAX  = hp.HParam('max_ker',  hp.Discrete(KER_VALS))
+HP_NODE_MIN = hp.HParam('max_node', hp.Discrete(NODE_VALS))
 
 if __name__ == '__main__':
     start = time.time()
     
     # Samples (will be 20*num_samples because 20 channels)
-    num_samples = 5
+    # Also scale number of samples so that they all have similar total number
+    num_samples = 128 * 4 / WIDTH_VALS[WIDTH_IDX]
 
     # Multiscale w/ 5x5, 15x15, and 25x25 kernels
-    kernels = [5, 15, 25]
-    nodes = [8, 16, 32]
-    ep = 20 # Epochs, 10 may be too few but 100 was overkill
+    # kernels = [5, 15, 25]
+    # nodes = [8, 16, 32]
+    
+    kernels = get_ker(KER_IDX)
+    nodes = NODE_VALS[NODE_IDX] * np.array([1, 2, 4]) 
+    ep = 5 # Epochs, 10 may be too few but 100 was overkill
 
-    window_size = (256, 125)
+    window_size = (256, WIDTH_VALS[WIDTH_IDX])
     num_strips = int(np.floor(3905 / window_size[1]))
 
     with h5.File('/projects/EKOLEMEN/ae_andy/AE_data.h5', 'r') as file:
@@ -314,23 +390,31 @@ if __name__ == '__main__':
         autoencoder.compile(optimizer="adam", loss="binary_crossentropy")
         autoencoder.summary()
 
-        log_dir = "/scratch/gpfs/ar0535/logs/Multiscale/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+        logdir = f"/scratch/gpfs/ar0535/logs/Multiscale/{JOB_ID}/"
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir=logdir, histogram_freq=1)
         
-        hist = autoencoder.fit(
-            x=Sxx_train_reshaped,
-            y=final_train_reshaped,
-            epochs=ep,
-            batch_size=32,
-            shuffle=True,
-            validation_data=(Sxx_tune_reshaped, final_tune_reshaped),
-            verbose=2,
-            callbacks=[tensorboard_callback],
-        )
-
+        hparams = {
+          HP_T_WIDTH: WIDTH_VALS[WIDTH_IDX],
+          HP_KER_MAX: KER_VALS[KER_IDX],
+          HP_NODE_MIN: NODE_VALS[NODE_IDX],
+        }
+        
+        with tf.summary.create_file_writer(logdir).as_default():
+            hp.hparams(hparams)  # record the values used in this trial
+            hist = autoencoder.fit(
+                x=Sxx_train_reshaped,
+                y=final_train_reshaped,
+                epochs=ep,
+                batch_size=32,
+                shuffle=True,
+                validation_data=(Sxx_tune_reshaped, final_tune_reshaped),
+                verbose=2,
+                callbacks=[tensorboard_callback,hp.KerasCallback(logdir, hparams)],
+            )
+        
         ### Make some plots and save errors
         n = 5 # Number of random test data spectrograms to plot
-        post_process(file, autoencoder, hist, kernels, n, window_size, num_strips)
+        # post_process(file, autoencoder, hist, kernels, n, window_size, num_strips)
         
         mins = int(np.floor((time.time() - start) / 60.0))
         print(f'Total time: {mins} min', flush=True)
