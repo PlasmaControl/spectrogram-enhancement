@@ -402,6 +402,9 @@ if __name__ == '__main__':
           HP_NODE_MIN: NODE_VALS[NODE_IDX],
         }
         
+        # Fix so I can use tensorboard?
+        autoencoder._get_distribution_strategy = lambda: None
+        
         with tf.summary.create_file_writer(logdir).as_default():
             hp.hparams(hparams)  # record the values used in this trial
             hist = autoencoder.fit(
