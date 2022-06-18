@@ -354,8 +354,7 @@ if __name__ == '__main__':
     
     # Samples (will be 20*num_samples because 20 channels)
     # Also scale number of samples so that they all have similar total number
-    num_samples = 128 * 4 / WIDTH_VALS[WIDTH_IDX]
-    print(num_samples, flush=True)
+    num_samples = int(128 * 4 / WIDTH_VALS[WIDTH_IDX])
 
     # Multiscale w/ 5x5, 15x15, and 25x25 kernels
     # kernels = [5, 15, 25]
