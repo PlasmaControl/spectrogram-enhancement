@@ -327,12 +327,12 @@ def get_ker(KER_IDX):
     else:
         raise(ValueError('KER_IDX invalid'))
 
-WIDTH_VALS = [4, 8, 16, 32]
+WIDTH_VALS = [8, 16, 32]
 KER_VALS = [7, 11, 15, 25]
 NODE_VALS  = [2, 4, 8]
 
 # TEST
-WIDTH_VALS = [4, 8]
+WIDTH_VALS = [8, 16]
 KER_VALS = [7, 11]
 NODE_VALS  = [2, 4]
 
