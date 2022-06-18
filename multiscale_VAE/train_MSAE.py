@@ -331,7 +331,7 @@ KER_VALS = [7, 11, 15, 25]
 NODE_VALS  = [2, 4, 8]
 
 # TEST
-WIDTH_VALS = [4, 8,]
+WIDTH_VALS = [4, 8]
 KER_VALS = [7, 11]
 NODE_VALS  = [2, 4]
 
@@ -355,6 +355,7 @@ if __name__ == '__main__':
     # Samples (will be 20*num_samples because 20 channels)
     # Also scale number of samples so that they all have similar total number
     num_samples = 128 * 4 / WIDTH_VALS[WIDTH_IDX]
+    print(num_samples, flush=True)
 
     # Multiscale w/ 5x5, 15x15, and 25x25 kernels
     # kernels = [5, 15, 25]
