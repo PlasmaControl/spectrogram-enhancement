@@ -9,8 +9,7 @@ import io
 
 from keras import layers
 from keras.models import Model
-import scipy as sp
-from tensorflow import keras
+from keras.callbacks import TensorBoard
 
 import tensorflow as tf
 from tensorboard.plugins.hparams import api as hp
@@ -394,7 +393,7 @@ if __name__ == '__main__':
 
         logdir = f"/scratch/gpfs/ar0535/spec_model_data/Multiscale/logs/{JOB_ID}"
         # os.makedirs(logdir)
-        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
+        tensorboard_callback = TensorBoard(log_dir=logdir, histogram_freq=1)
         
         hparams = {
           HP_T_WIDTH: WIDTH_VALS[WIDTH_IDX],
