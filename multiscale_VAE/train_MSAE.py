@@ -330,20 +330,10 @@ WIDTH_VALS = [8, 16, 32]
 KER_VALS = [7, 11, 15, 25]
 NODE_VALS  = [2, 4, 8]
 
-# TEST
-WIDTH_VALS = [8, 16]
-KER_VALS = [7, 11]
-NODE_VALS  = [2, 4]
-
 # Get from job array ID
-WIDTH_IDX = JOB_ID % 4
+WIDTH_IDX = JOB_ID % 3
 KER_IDX   = int(JOB_ID / 4) % 4
-NODE_IDX  = int(JOB_ID / 16) % 3
-
-# Get from job array ID TEST
-WIDTH_IDX = JOB_ID % 2
-KER_IDX   = int(JOB_ID / 2) % 2
-NODE_IDX  = int(JOB_ID / 4) % 2
+NODE_IDX  = int(JOB_ID / 12) % 3
 
 HP_T_WIDTH  = hp.HParam('t_width',  hp.Discrete(WIDTH_VALS))
 HP_KER_MAX  = hp.HParam('max_ker',  hp.Discrete(KER_VALS))
@@ -354,8 +344,8 @@ if __name__ == '__main__':
     
     # Samples (will be 20*num_samples because 20 channels)
     # Also scale number of samples so that they all have similar total number
-    SAMPLES = 5
-    num_samples = int(SAMPLES * 4 / WIDTH_VALS[WIDTH_IDX])
+    SAMPLES = 128
+    num_samples = int(SAMPLES * 8 / WIDTH_VALS[WIDTH_IDX])
 
     # Multiscale w/ 5x5, 15x15, and 25x25 kernels
     # kernels = [5, 15, 25]
@@ -363,7 +353,7 @@ if __name__ == '__main__':
     
     kernels = get_ker(KER_IDX)
     nodes = NODE_VALS[NODE_IDX] * np.array([1, 2, 4]) 
-    ep = 5 # Epochs, 10 may be too few but 100 was overkill
+    ep = 80 # Epochs, 10 may be too few but 100 was overkill
 
     window_size = (256, WIDTH_VALS[WIDTH_IDX])
     num_strips = int(np.floor(3905 / window_size[1]))
@@ -402,7 +392,7 @@ if __name__ == '__main__':
         }
         
         # Fix so I can use tensorboard?
-        # autoencoder._get_distribution_strategy = lambda: None
+        autoencoder._get_distribution_strategy = lambda: None
         
         with tf.summary.create_file_writer(logdir).as_default():
             hp.hparams(hparams)  # record the values used in this trial
