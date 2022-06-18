@@ -275,8 +275,8 @@ def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips):
     shotn = '176053' # Shot we decide to look at
     dset = file[shotn]['ece']['chn_1']
     # Example prediction plot
-    logdir = f"/scratch/gpfs/ar0535/logs/spec_model_data/Multiscale/logs/{JOB_ID}/plots"
-    os.makedirs(logdir)
+    logdir = f"/scratch/gpfs/ar0535/spec_model_data/Multiscale/logs/{JOB_ID}/plots"
+    # os.makedirs(logdir)
     file_writer = tf.summary.create_file_writer(logdir)
     for i in range(10, 13):
         # Load specific channel data
@@ -392,9 +392,9 @@ if __name__ == '__main__':
         autoencoder.compile(optimizer="adam", loss="binary_crossentropy")
         autoencoder.summary()
 
-        logdir = f"/scratch/gpfs/ar0535/logs/spec_model_data/Multiscale/{JOB_ID}"
-        os.makedirs(logdir)
-        tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir=logdir, histogram_freq=1)
+        logdir = f"/scratch/gpfs/ar0535/spec_model_data/Multiscale/logs/{JOB_ID}"
+        # os.makedirs(logdir)
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1)
         
         hparams = {
           HP_T_WIDTH: WIDTH_VALS[WIDTH_IDX],
