@@ -402,7 +402,7 @@ if __name__ == '__main__':
         }
         
         # Fix so I can use tensorboard?
-        autoencoder._get_distribution_strategy = lambda: None
+        # autoencoder._get_distribution_strategy = lambda: None
         
         with tf.summary.create_file_writer(logdir).as_default():
             hp.hparams(hparams)  # record the values used in this trial
@@ -414,7 +414,7 @@ if __name__ == '__main__':
                 shuffle=True,
                 validation_data=(Sxx_tune_reshaped, final_tune_reshaped),
                 verbose=2,
-                callbacks=[tensorboard_callback,hp.KerasCallback(logdir, hparams)],
+                callbacks=[tensorboard_callback, hp.KerasCallback(logdir, hparams)],
             )
         
         ### Make some plots and save errors
