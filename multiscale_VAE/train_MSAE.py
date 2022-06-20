@@ -214,13 +214,13 @@ def get_samples(file, num_samples, window_size, num_strips, Split=True):
         
         # reshape our data to add 1 extra dim for pooling later
         Sxx_train_reshaped = reshape(Sxx_train)
-        Sxx_test_reshaped = reshape(Sxx_test)
+        # Sxx_test_reshaped = reshape(Sxx_test)
         Sxx_tune_reshaped = reshape(Sxx_tune)
         final_train_reshaped = reshape(final_train)
         # final_test_reshaped = reshape(final_test)
         final_tune_reshaped = reshape(final_tune)
         
-        return (Sxx_train_reshaped, Sxx_test_reshaped, Sxx_tune_reshaped, final_train_reshaped, final_test, final_tune_reshaped, Sxx_test)
+        return (Sxx_train_reshaped, Sxx_tune_reshaped, final_train_reshaped, final_tune_reshaped)
     else: 
         ### Return spectrograms in one group
         return (reshape(spectrograms), final)
@@ -232,7 +232,7 @@ def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips):
     '''
     # Make directory to save model
     data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/sweep_models/'
-    os.makedirs(data_path)
+    # os.makedirs(data_path)
     
     # Save autoencoder Model
     autoencoder.save(data_path+f'keras_model_{JOB_ID}')
@@ -295,8 +295,7 @@ def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips):
         
         # Save plot in log
         with file_writer.as_default():
-            tf.summary.image(f"chn_{i+1}", plot_to_image(fig), step=0)
-            
+            tf.summary.image(f"chn_{i+1}", plot_to_image(fig), step=0)           
     
 def plot_to_image(figure):
   """Converts the matplotlib plot specified by 'figure' to a PNG image and
@@ -344,8 +343,8 @@ if __name__ == '__main__':
     
     # Samples (will be 20*num_samples because 20 channels)
     # Also scale number of samples so that they all have similar total number
-    SAMPLES = 64
-    num_samples = int(SAMPLES * 8 / WIDTH_VALS[WIDTH_IDX])
+    SAMPLES = 2
+    num_samples = int(SAMPLES * WIDTH_VALS[WIDTH_IDX])
 
     # Multiscale w/ 5x5, 15x15, and 25x25 kernels
     # kernels = [5, 15, 25]
@@ -360,8 +359,8 @@ if __name__ == '__main__':
 
     with h5.File('/projects/EKOLEMEN/ae_andy/AE_data.h5', 'r') as file:
         # Get data (uses normalizer model to normalize ECE data)
-        (Sxx_train_reshaped, _, Sxx_tune_reshaped, final_train_reshaped, 
-         _, final_tune_reshaped, _) = get_samples(file, num_samples, window_size, num_strips)
+        (Sxx_train_reshaped, Sxx_tune_reshaped, final_train_reshaped, 
+         final_tune_reshaped) = get_samples(file, num_samples, window_size, num_strips)
 
         # Initialize network
         input = layers.Input(shape = (window_size[0], window_size[1], 1))
