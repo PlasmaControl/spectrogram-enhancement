@@ -231,11 +231,11 @@ def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips):
     Plot predictions for spectrograms and losses
     '''
     # Make directory to save model
-    data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/t_width_{window_size[1]}/Ker_{kernels[0]}{kernels[1]}{kernels[2]}/'
+    data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/sweep_models/'
     os.makedirs(data_path)
     
     # Save autoencoder Model
-    autoencoder.save(data_path+'keras_model')
+    autoencoder.save(data_path+f'keras_model_{JOB_ID}')
     
     '''
     raw_specs, pipeline_specs = get_samples(file, n, window_size, num_strips, Split=False)
@@ -337,14 +337,14 @@ NODE_IDX  = int(JOB_ID / 12) % 3
 
 HP_T_WIDTH  = hp.HParam('t_width',  hp.Discrete(WIDTH_VALS))
 HP_KER_MAX  = hp.HParam('max_ker',  hp.Discrete(KER_VALS))
-HP_NODE_MIN = hp.HParam('max_node', hp.Discrete(NODE_VALS))
+HP_NODE_MIN = hp.HParam('min_node', hp.Discrete(NODE_VALS))
 
 if __name__ == '__main__':
     start = time.time()
     
     # Samples (will be 20*num_samples because 20 channels)
     # Also scale number of samples so that they all have similar total number
-    SAMPLES = 128
+    SAMPLES = 64
     num_samples = int(SAMPLES * 8 / WIDTH_VALS[WIDTH_IDX])
 
     # Multiscale w/ 5x5, 15x15, and 25x25 kernels
@@ -353,7 +353,7 @@ if __name__ == '__main__':
     
     kernels = get_ker(KER_IDX)
     nodes = NODE_VALS[NODE_IDX] * np.array([1, 2, 4]) 
-    ep = 80 # Epochs, 10 may be too few but 100 was overkill
+    ep = 20 # Epochs, 10 may be too few but 100 was overkill
 
     window_size = (256, WIDTH_VALS[WIDTH_IDX])
     num_strips = int(np.floor(3905 / window_size[1]))
@@ -409,7 +409,7 @@ if __name__ == '__main__':
         
         ### Make some plots and save errors
         n = 5 # Number of random test data spectrograms to plot
-        # post_process(file, autoencoder, hist, kernels, n, window_size, num_strips)
+        post_process(file, autoencoder, hist, kernels, n, window_size, num_strips)
         
         mins = int(np.floor((time.time() - start) / 60.0))
         print(f'Total time: {mins} min', flush=True)
