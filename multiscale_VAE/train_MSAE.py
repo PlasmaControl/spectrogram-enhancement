@@ -343,9 +343,9 @@ if __name__ == '__main__':
     num_samples = 600
 
     # Multiscale w/ 5x5, 15x15, and 25x25 kernels
-    kernels = [5, 11, 15]
-    nodes = [4, 8, 16]
-    width = 16
+    kernels = [5, 15, 25]
+    nodes = [2, 4, 8]
+    width = 32
     if JOB_ID == 0:
         MULTI = True
     else:
