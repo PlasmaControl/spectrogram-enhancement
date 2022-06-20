@@ -340,12 +340,12 @@ if __name__ == '__main__':
     
     # Samples (will be 20*num_samples because 20 channels)
     # Also scale number of samples so that they all have similar total number
-    num_samples = 600
+    num_samples = 300
 
     # Multiscale w/ 5x5, 15x15, and 25x25 kernels
-    kernels = [5, 11, 15]
+    kernels = [3, 7, 11]
     nodes = [2, 4, 8]
-    width = 16
+    width = 8
     if JOB_ID == 0:
         MULTI = True
     else:
