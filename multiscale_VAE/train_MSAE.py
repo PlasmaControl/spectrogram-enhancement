@@ -339,12 +339,12 @@ if __name__ == '__main__':
     start = time.time()
     
     # Samples (will be 20*num_samples because 20 channels)
-    num_samples = 50
+    num_samples = 200
 
     # Multiscale w/ 5x5, 15x15, and 25x25 kernels
-    kernels = [3, 5, 9]
-    nodes = [2, 4, 8]
-    width = 8
+    kernels = [5, 15, 25]
+    nodes = [4, 8, 16]
+    width = 32
     if JOB_ID == 0:
         MULTI = True
     else:
