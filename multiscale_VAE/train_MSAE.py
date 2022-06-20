@@ -10,7 +10,6 @@ import io
 from keras import layers
 from keras.models import Model
 from keras.callbacks import TensorBoard
-from tensorflow.keras import mixed_precision
 
 import tensorflow as tf
 from tensorboard.plugins.hparams import api as hp
@@ -354,10 +353,6 @@ if __name__ == '__main__':
         label  = f'{width}_{nodes[2]}_{kernels[0]}_{kernels[1]}_{kernels[2]}'
         logdir = f"/scratch/gpfs/ar0535/spec_model_data/Multiscale/logs/"+label
         tensorboard_callback = TensorBoard(log_dir=logdir, histogram_freq=1)
-        
-        # Setting some options that should increase training speed
-        policy = mixed_precision.Policy('mixed_float16')
-        mixed_precision.set_global_policy(policy)
         
         with tf.summary.create_file_writer(logdir).as_default():
             hist = autoencoder.fit(
