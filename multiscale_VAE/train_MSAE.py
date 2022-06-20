@@ -10,6 +10,7 @@ import io
 from keras import layers
 from keras.models import Model
 from keras.callbacks import TensorBoard
+from tensorflow.keras import mixed_precision
 
 import tensorflow as tf
 from tensorboard.plugins.hparams import api as hp
@@ -355,8 +356,8 @@ if __name__ == '__main__':
         tensorboard_callback = TensorBoard(log_dir=logdir, histogram_freq=1)
         
         # Setting some options that should increase training speed
-        policy = tf.keras.mixed_precision.Policy('mixed_float16')
-        tf.keras.mixed_precision.set_policy(policy)
+        policy = mixed_precision.Policy('mixed_float16')
+        mixed_precision.set_global_policy(policy)
         
         with tf.summary.create_file_writer(logdir).as_default():
             hist = autoencoder.fit(
