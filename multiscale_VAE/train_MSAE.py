@@ -371,7 +371,7 @@ if __name__ == '__main__':
         
         ### Make some plots and save errors
         n = 5 # Number of random test data spectrograms to plot
-        post_process(file, autoencoder, hist, kernels, n, window_size, num_strips)
+        post_process(file, autoencoder, hist, kernels, n, window_size, num_strips, label)
         
         mins = int(np.floor((time.time() - start) / 60.0))
         print(f'Total time: {mins} min', flush=True)
