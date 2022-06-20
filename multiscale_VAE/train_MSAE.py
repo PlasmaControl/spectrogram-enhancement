@@ -1,3 +1,4 @@
+from tkinter import X
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
@@ -13,6 +14,8 @@ from keras.callbacks import TensorBoard
 
 import tensorflow as tf
 from tensorboard.plugins.hparams import api as hp
+
+JOB_ID = int(os.environ["SLURM_ARRAY_TASK_ID"])
 
 # patches all the strips together to 1 spectrogram
 def patch(arr, window_size, num_strips):
@@ -180,6 +183,28 @@ def MSConv2DTranspose(initial, nodes, kernels):
     # Sum together
     return layers.Add()([x1, x2, x3])
 
+def normal_AE(input, nodes, kernel):
+    '''
+    Makes normal convolution based autoencoder to compare with multiscale one. 
+    '''
+    
+    # 2D Convolution each followed by a max pooling layer
+    x = layers.Conv2D(nodes[0], (kernel,kernel), activation="relu", padding="same")(input)
+    x = layers.MaxPooling2D((2, 2), padding="same")(x)
+    
+    x = layers.Conv2D(nodes[1], (kernel,kernel), activation="relu", padding="same")(x)
+    x = layers.MaxPooling2D((2, 2), padding="same")(x)
+    
+    x = layers.Conv2D(nodes[2], (kernel,kernel), activation="relu", padding="same")(x)
+    x = layers.MaxPooling2D((2, 2), padding="same")(x)
+    
+    # Deconvolution
+    x = layers.Conv2DTranspose(nodes[2], (kernel,kernel), strides=2, activation="relu", padding="same")(x)
+    x = layers.Conv2DTranspose(nodes[1], (kernel,kernel), strides=2, activation="relu", padding="same")(x)
+    x = layers.Conv2DTranspose(nodes[0], (kernel,kernel), strides=2, activation="relu", padding="same")(x)
+    
+    return x
+
 # Get random samples to train model
 def get_samples(file, num_samples, window_size, num_strips, Split=True):
     spectrograms = []
@@ -315,12 +340,16 @@ if __name__ == '__main__':
     
     # Samples (will be 20*num_samples because 20 channels)
     # Also scale number of samples so that they all have similar total number
-    num_samples = 200
+    num_samples = 600
 
     # Multiscale w/ 5x5, 15x15, and 25x25 kernels
-    kernels = [5, 15, 25]
+    kernels = [5, 11, 15]
     nodes = [2, 4, 8]
     width = 16
+    if JOB_ID == 0:
+        MULTI = True
+    else:
+        MULTI = False
     
     ep = 60 # Epochs, 10 may be too few but 100 was overkill
 
@@ -335,13 +364,16 @@ if __name__ == '__main__':
         # Initialize network
         input = layers.Input(shape = (window_size[0], window_size[1], 1))
 
-        x = MSConv2D(input, nodes[0], kernels)
-        x = MSConv2D(x, nodes[1], kernels)
-        x = MSConv2D(x, nodes[2], kernels)
+        if MULTI:
+            x = MSConv2D(input, nodes[0], kernels)
+            x = MSConv2D(x, nodes[1], kernels)
+            x = MSConv2D(x, nodes[2], kernels)
 
-        x = MSConv2DTranspose(x, nodes[2], kernels)
-        x = MSConv2DTranspose(x, nodes[1], kernels)
-        x = MSConv2DTranspose(x, nodes[0], kernels)
+            x = MSConv2DTranspose(x, nodes[2], kernels)
+            x = MSConv2DTranspose(x, nodes[1], kernels)
+            x = MSConv2DTranspose(x, nodes[0], kernels)
+        else:
+            x = normal_AE(input, nodes, kernels[2])
 
         # End with normal 3x3 Convolutional Layer
         x = layers.Conv2D(1, (3,3), activation="sigmoid", padding="same")(x)
@@ -350,7 +382,10 @@ if __name__ == '__main__':
         autoencoder.compile(optimizer="adam", loss="binary_crossentropy")
         autoencoder.summary()
 
-        label  = f'{width}_{nodes[2]}_{kernels[0]}_{kernels[1]}_{kernels[2]}'
+        if MULTI:
+            label  = f'{width}_{nodes[2]}_{kernels[0]}_{kernels[1]}_{kernels[2]}'
+        else:
+            label  = f'{width}_{nodes[2]}_{kernels[2]}'
         logdir = f"/scratch/gpfs/ar0535/spec_model_data/Multiscale/logs/"+label
         tensorboard_callback = TensorBoard(log_dir=logdir, histogram_freq=1)
         
