@@ -315,14 +315,14 @@ if __name__ == '__main__':
     
     # Samples (will be 20*num_samples because 20 channels)
     # Also scale number of samples so that they all have similar total number
-    num_samples = 10
+    num_samples = 200
 
     # Multiscale w/ 5x5, 15x15, and 25x25 kernels
     kernels = [5, 15, 25]
     nodes = [2, 4, 8]
     width = 16
     
-    ep = 5 # Epochs, 10 may be too few but 100 was overkill
+    ep = 60 # Epochs, 10 may be too few but 100 was overkill
 
     window_size = (256, width)
     num_strips = int(np.floor(3905 / window_size[1]))
