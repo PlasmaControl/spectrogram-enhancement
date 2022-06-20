@@ -354,6 +354,9 @@ if __name__ == '__main__':
         logdir = f"/scratch/gpfs/ar0535/spec_model_data/Multiscale/logs/"+label
         tensorboard_callback = TensorBoard(log_dir=logdir, histogram_freq=1)
         
+        # Fix to use tensorboard
+        autoencoder._get_distribution_strategy = lambda: None
+        
         with tf.summary.create_file_writer(logdir).as_default():
             hist = autoencoder.fit(
                 x=Sxx_train_reshaped,
