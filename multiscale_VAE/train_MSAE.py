@@ -14,8 +14,6 @@ from keras.callbacks import TensorBoard
 import tensorflow as tf
 from tensorboard.plugins.hparams import api as hp
 
-JOB_ID = int(os.environ["SLURM_ARRAY_TASK_ID"])
-
 # patches all the strips together to 1 spectrogram
 def patch(arr, window_size, num_strips):
     '''
@@ -226,16 +224,15 @@ def get_samples(file, num_samples, window_size, num_strips, Split=True):
         return (reshape(spectrograms), final)
 
 # saves plots and losses
-def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips):
+def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips, label):
     '''
     Plot predictions for spectrograms and losses
     '''
     # Make directory to save model
     data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/sweep_models/'
-    # os.makedirs(data_path)
     
     # Save autoencoder Model
-    autoencoder.save(data_path+f'keras_model_{JOB_ID}')
+    autoencoder.save(data_path+f'keras_model_'+label)
     
     '''
     raw_specs, pipeline_specs = get_samples(file, n, window_size, num_strips, Split=False)
@@ -274,7 +271,7 @@ def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips):
     shotn = '176053' # Shot we decide to look at
     dset = file[shotn]['ece']['chn_1']
     # Example prediction plot
-    logdir = f"/scratch/gpfs/ar0535/spec_model_data/Multiscale/logs/{JOB_ID}/plots"
+    logdir = f"/scratch/gpfs/ar0535/spec_model_data/Multiscale/logs/"+label+"/plots"
     # os.makedirs(logdir)
     file_writer = tf.summary.create_file_writer(logdir)
     for i in range(10, 13):
@@ -313,48 +310,21 @@ def plot_to_image(figure):
   image = tf.expand_dims(image, 0)
   return image
 
-def get_ker(KER_IDX):
-    if KER_IDX == 0:
-        return [3, 5, 7]
-    elif KER_IDX == 1:
-        return [5, 9, 11]
-    elif KER_IDX == 2:
-        return [7, 11, 15]
-    elif KER_IDX == 3:
-        return [7, 15, 25]
-    else:
-        raise(ValueError('KER_IDX invalid'))
-
-WIDTH_VALS = [8, 16, 32]
-KER_VALS = [7, 11, 15, 25]
-NODE_VALS  = [2, 4, 8]
-
-# Get from job array ID
-WIDTH_IDX = JOB_ID % 3
-KER_IDX   = int(JOB_ID / 4) % 4
-NODE_IDX  = int(JOB_ID / 12) % 3
-
-HP_T_WIDTH  = hp.HParam('t_width',  hp.Discrete(WIDTH_VALS))
-HP_KER_MAX  = hp.HParam('max_ker',  hp.Discrete(KER_VALS))
-HP_NODE_MIN = hp.HParam('min_node', hp.Discrete(NODE_VALS))
-
 if __name__ == '__main__':
     start = time.time()
     
     # Samples (will be 20*num_samples because 20 channels)
     # Also scale number of samples so that they all have similar total number
-    SAMPLES = 2
-    num_samples = int(SAMPLES * WIDTH_VALS[WIDTH_IDX])
+    num_samples = 10
 
     # Multiscale w/ 5x5, 15x15, and 25x25 kernels
-    # kernels = [5, 15, 25]
-    # nodes = [8, 16, 32]
+    kernels = [5, 15, 25]
+    nodes = [2, 4, 8]
+    width = 16
     
-    kernels = get_ker(KER_IDX)
-    nodes = NODE_VALS[NODE_IDX] * np.array([1, 2, 4]) 
-    ep = 20 # Epochs, 10 may be too few but 100 was overkill
+    ep = 5 # Epochs, 10 may be too few but 100 was overkill
 
-    window_size = (256, WIDTH_VALS[WIDTH_IDX])
+    window_size = (256, width)
     num_strips = int(np.floor(3905 / window_size[1]))
 
     with h5.File('/projects/EKOLEMEN/ae_andy/AE_data.h5', 'r') as file:
@@ -380,30 +350,24 @@ if __name__ == '__main__':
         autoencoder.compile(optimizer="adam", loss="binary_crossentropy")
         autoencoder.summary()
 
-        logdir = f"/scratch/gpfs/ar0535/spec_model_data/Multiscale/logs/{JOB_ID}"
-        # os.makedirs(logdir)
+        label  = f'{width}_{nodes[2]}_{kernels[0]}_{kernels[1]}_{kernels[2]}'
+        logdir = f"/scratch/gpfs/ar0535/spec_model_data/Multiscale/logs/"+label
         tensorboard_callback = TensorBoard(log_dir=logdir, histogram_freq=1)
         
-        hparams = {
-          HP_T_WIDTH: WIDTH_VALS[WIDTH_IDX],
-          HP_KER_MAX: KER_VALS[KER_IDX],
-          HP_NODE_MIN: NODE_VALS[NODE_IDX],
-        }
-        
-        # Fix so I can use tensorboard?
-        autoencoder._get_distribution_strategy = lambda: None
+        # Setting some options that should increase training speed
+        policy = tf.keras.mixed_precision.Policy('mixed_float16')
+        tf.keras.mixed_precision.set_policy(policy)
         
         with tf.summary.create_file_writer(logdir).as_default():
-            hp.hparams(hparams)  # record the values used in this trial
             hist = autoencoder.fit(
                 x=Sxx_train_reshaped,
                 y=final_train_reshaped,
                 epochs=ep,
-                batch_size=32,
+                batch_size=128,
                 shuffle=True,
                 validation_data=(Sxx_tune_reshaped, final_tune_reshaped),
                 verbose=2,
-                callbacks=[tensorboard_callback, hp.KerasCallback(logdir, hparams)],
+                callbacks=[tensorboard_callback],
             )
         
         ### Make some plots and save errors
