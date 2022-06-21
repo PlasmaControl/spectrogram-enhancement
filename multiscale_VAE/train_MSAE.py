@@ -13,9 +13,52 @@ from keras.models import Model
 from keras.callbacks import TensorBoard
 
 import tensorflow as tf
+from tensorflow import keras
 from tensorboard.plugins.hparams import api as hp
 
 JOB_ID = int(os.environ["SLURM_ARRAY_TASK_ID"])
+
+class EpochCallback(keras.callbacks.Callback):
+    def __init__(self, model_dir, label) -> None:
+        self.model_dir = model_dir
+        self.label = label
+        super().__init__()
+    
+    def on_epoch_end(self, epoch, logs=None):
+        '''
+        Make example plots every 10 epochs to see how training progresses
+        and save model in case of failure.
+        '''
+        if epoch % 10 == 0:
+            # Save autoencoder Model
+            self.model.save(self.model_dir+f'keras_model_'+self.label)
+            
+            # Go through and make 3 plots
+            shotn = '176053' # Shot we decide to look at
+            dset = file[shotn]['ece']['chn_1']
+            # Example prediction plot
+            logdir = f"/scratch/gpfs/ar0535/spec_model_data/Multiscale/logs/"+label+f"/plots/{epoch}"
+            file_writer = tf.summary.create_file_writer(logdir)
+            for i in range(10, 13):
+                # Load specific channel data
+                dset = file[shotn]['ece'][f'chn_{i+1}']
+                
+                # Read raw data from hdf5 file and change shape of raw spectrogram
+                noisy = []
+                noisy.append(np.array(dset['spectrogram']))
+                noisy = patch(noisy, window_size, num_strips)
+                
+                # Predict spectrograms
+                predictions = autoencoder.predict(reshape(noisy))
+                
+                # Plot raw, processed, and predicted spectrograms
+                caption = caption = 'shot# '+ shotn +f', channel {i+1}'
+                fig = plt_spec_shot(dset, predictions, noisy, caption, None, window_size, num_strips)
+                
+                # Save plot in log
+                with file_writer.as_default():
+                    tf.summary.image(f"chn_{i+1}", plot_to_image(fig), step=0)
+
 
 # patches all the strips together to 1 spectrogram
 def patch(arr, window_size, num_strips):
@@ -225,9 +268,9 @@ def get_samples(file, num_samples, window_size, num_strips, Split=True):
     if Split:
         # Shuffle slices to remove errors from different shots
         seed = 239517
-        np.random.RandomState(seed)
+        np.random.seed(seed)
         np.random.shuffle(spectrograms)
-        np.random.RandomState(seed)
+        np.random.seed(seed)
         np.random.shuffle(final)
                 
         ### Returns spectrograms split into training, testing, and validation
@@ -317,7 +360,7 @@ def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips, l
         
         # Save plot in log
         with file_writer.as_default():
-            tf.summary.image(f"chn_{i+1}", plot_to_image(fig), step=0)           
+            tf.summary.image(f"chn_{i+1}", plot_to_image(fig), step=0)       
     
 def plot_to_image(figure):
   """Converts the matplotlib plot specified by 'figure' to a PNG image and
@@ -335,22 +378,45 @@ def plot_to_image(figure):
   image = tf.expand_dims(image, 0)
   return image
 
-if __name__ == '__main__':
-    start = time.time()
-    
-    # Samples (will be 20*num_samples because 20 channels)
-    num_samples = 200
-
-    # Multiscale w/ 5x5, 15x15, and 25x25 kernels
-    kernels = [5, 15, 25]
-    nodes = [4, 8, 16]
-    width = 32
-    if JOB_ID == 0:
+def get_params(JOB_ID):
+    '''
+    Returns parameters based on job array index
+    '''
+    if JOB_ID % 2 == 0:
         MULTI = True
     else:
         MULTI = False
+        
+    if JOB_ID in [0,1,2,3]:
+        num_samples = 200
+        width = 32
+        kernels = [5, 15, 25]
+        if JOB_ID in [0,1]:
+            nodes = [4, 8, 16]
+        else:
+            nodes = [2, 4, 8]
+    elif JOB_ID in [4,5,6,7]:
+        num_samples = 120
+        width = 16
+        kernels = [5, 11, 15]
+        if JOB_ID in [4,5]:
+            nodes = [4, 8, 16]
+        else:
+            nodes = [2, 4, 8]
+    elif JOB_ID in [8,9]:
+        num_samples = 60
+        width = 8
+        kernels = [3, 5, 9]
+        nodes = [2, 4, 8]
     
-    ep = 200 # Epochs, 10 may be too few but 100 was overkill
+    return num_samples, kernels, nodes, width, MULTI
+
+if __name__ == '__main__':
+    start = time.time()
+    
+    ep = 150 # Epochs
+
+    num_samples, kernels, nodes, width, MULTI = get_params(JOB_ID)
 
     window_size = (256, width)
     num_strips = int(np.floor(3905 / window_size[1]))
@@ -391,6 +457,10 @@ if __name__ == '__main__':
         # Fix to use tensorboard
         autoencoder._get_distribution_strategy = lambda: None
         
+        # Make directory to save model
+        model_dir = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/sweep_models/'
+        trainingCallback = EpochCallback(model_dir, label)
+        
         with tf.summary.create_file_writer(logdir).as_default():
             hist = autoencoder.fit(
                 x=Sxx_train_reshaped,
@@ -400,12 +470,12 @@ if __name__ == '__main__':
                 shuffle=True,
                 validation_data=(Sxx_tune_reshaped, final_tune_reshaped),
                 verbose=2,
-                callbacks=[tensorboard_callback],
+                callbacks=[tensorboard_callback, trainingCallback],
             )
         
         ### Make some plots and save errors
         n = 5 # Number of random test data spectrograms to plot
-        post_process(file, autoencoder, hist, kernels, n, window_size, num_strips, label)
+        # post_process(file, autoencoder, hist, kernels, n, window_size, num_strips, label)
         
         mins = int(np.floor((time.time() - start) / 60.0))
         print(f'Total time: {mins} min', flush=True)
