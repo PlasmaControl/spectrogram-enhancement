@@ -1,6 +1,7 @@
 import time
 import numpy as np
 import random
+import h5py as h5
 
 from keras.models import load_model
 
@@ -112,7 +113,8 @@ if __name__ == '__main__':
         window_size = (256, width)
         num_strips = int(np.floor(3905 / window_size[1]))
         
-        samples = get_samples()
+        with h5.File('/projects/EKOLEMEN/ae_andy/AE_data.h5', 'r') as file: 
+            samples = get_samples(file, num_samples, window_size, num_strips)
         
         model = load_model(get_model_name(JOB_ID))
         
