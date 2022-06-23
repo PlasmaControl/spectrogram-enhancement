@@ -478,7 +478,8 @@ if __name__ == '__main__':
                 shuffle=True,
                 validation_data=(Sxx_tune_reshaped, final_tune_reshaped),
                 verbose=2,
-                callbacks=[tensorboard_callback, trainingCallback],
+                # callbacks=[tensorboard_callback, trainingCallback],
+                callbacks=[tensorboard_callback],
             )
         
         ### Make some plots and save errors
