@@ -93,7 +93,7 @@ def get_samples(file, num_samples, window_size, num_strips):
     
     random_sample = random.sample(file.keys(), num_samples)
     for shotn in random_sample:
-        for chn in range(20):
+        for chn in range(2):
             if f'chn_{chn+1}' in file[shotn]['ece'].keys():
                 spectrograms.append(np.array(file[shotn]['ece'][f'chn_{chn+1}']['spectrogram']))
     
@@ -107,7 +107,7 @@ if __name__ == '__main__':
     Run autoencoder models to get time estimates on prediction
     '''
     
-    channels = 20
+    channels = 2
     for JOB_ID in range(10):
         num_samples, kernels, nodes, width, MULTI = get_params(JOB_ID)
         window_size = (256, width)
