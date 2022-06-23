@@ -17,6 +17,7 @@ from tensorflow import keras
 from tensorboard.plugins.hparams import api as hp
 
 JOB_ID = int(os.environ["SLURM_ARRAY_TASK_ID"])
+LOGDIR = '/scratch/gpfs/ar0535/spec_model_data/Multiscale/quick/'
 
 class EpochCallback(keras.callbacks.Callback):
     def __init__(self, model_dir, label) -> None:
@@ -37,7 +38,7 @@ class EpochCallback(keras.callbacks.Callback):
             shotn = '176053' # Shot we decide to look at
             dset = file[shotn]['ece']['chn_1']
             # Example prediction plot
-            logdir = f"/scratch/gpfs/ar0535/spec_model_data/Multiscale/logs/"+label+f"/plots/{epoch}"
+            logdir = LOGDIR + f"logs/"+label+f"/plots/{epoch}"
             file_writer = tf.summary.create_file_writer(logdir)
             for i in range(10, 13):
                 # Load specific channel data
@@ -235,10 +236,10 @@ def normal_AE(input, nodes, kernel):
     x = layers.Conv2D(nodes[0], (kernel,kernel), activation="relu", padding="same")(input)
     x = layers.MaxPooling2D((2, 2), padding="same")(x)
     
-    x = layers.Conv2D(nodes[1], (kernel,kernel), activation="relu", padding="same")(x)
+    x = layers.Conv2D(nodes[1], (3,3), activation="relu", padding="same")(x)
     x = layers.MaxPooling2D((2, 2), padding="same")(x)
     
-    x = layers.Conv2D(nodes[2], (kernel,kernel), activation="relu", padding="same")(x)
+    x = layers.Conv2D(nodes[2], (3,3), activation="relu", padding="same")(x)
     x = layers.MaxPooling2D((2, 2), padding="same")(x)
     
     # Deconvolution
@@ -297,7 +298,7 @@ def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips, l
     Plot predictions for spectrograms and losses
     '''
     # Make directory to save model
-    data_path = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/sweep_models/'
+    data_path = LOGDIR + f'sweep_models/'
     
     # Save autoencoder Model
     autoencoder.save(data_path+f'keras_model_'+label)
@@ -334,12 +335,12 @@ def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips, l
     plt.legend(['train', 'test'], loc='upper right')
     plt.show()
     plt.savefig(data_path+'val_loss.png')
-    '''
+    
 
     shotn = '176053' # Shot we decide to look at
     dset = file[shotn]['ece']['chn_1']
     # Example prediction plot
-    logdir = f"/scratch/gpfs/ar0535/spec_model_data/Multiscale/logs/"+label+"/plots"
+    logdir = LOGDIR + f"logs/"+label+"/plots"
     # os.makedirs(logdir)
     file_writer = tf.summary.create_file_writer(logdir)
     for i in range(10, 13):
@@ -360,7 +361,8 @@ def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips, l
         
         # Save plot in log
         with file_writer.as_default():
-            tf.summary.image(f"chn_{i+1}", plot_to_image(fig), step=0)       
+            tf.summary.image(f"chn_{i+1}", plot_to_image(fig), step=0)
+            '''       
     
 def plot_to_image(figure):
   """Converts the matplotlib plot specified by 'figure' to a PNG image and
@@ -388,7 +390,7 @@ def get_params(JOB_ID):
         MULTI = False
         
     if JOB_ID in [0,1,2,3]:
-        num_samples = 200
+        num_samples = 8 # 200
         width = 32
         kernels = [5, 15, 25]
         if JOB_ID in [0,1]:
@@ -396,7 +398,7 @@ def get_params(JOB_ID):
         else:
             nodes = [2, 4, 8]
     elif JOB_ID in [4,5,6,7]:
-        num_samples = 120
+        num_samples = 4 # 120
         width = 16
         kernels = [5, 11, 15]
         if JOB_ID in [4,5]:
@@ -404,17 +406,27 @@ def get_params(JOB_ID):
         else:
             nodes = [2, 4, 8]
     elif JOB_ID in [8,9]:
-        num_samples = 60
+        num_samples = 2 # 60
         width = 8
         kernels = [3, 5, 9]
         nodes = [2, 4, 8]
     
     return num_samples, kernels, nodes, width, MULTI
 
+def multiscale_AE(input, nodes, kernels):
+    small_ker = [1,3,5]
+    x = MSConv2D(input, nodes[0], kernels)
+    x = MSConv2D(x, nodes[1], small_ker)
+    x = MSConv2D(x, nodes[2], small_ker)
+
+    x = MSConv2DTranspose(x, nodes[2], small_ker)
+    x = MSConv2DTranspose(x, nodes[1], small_ker)
+    x = MSConv2DTranspose(x, nodes[0], kernels)
+
 if __name__ == '__main__':
     start = time.time()
     
-    ep = 150 # Epochs
+    ep = 5 # Epochs
 
     num_samples, kernels, nodes, width, MULTI = get_params(JOB_ID)
 
@@ -430,13 +442,7 @@ if __name__ == '__main__':
         input = layers.Input(shape = (window_size[0], window_size[1], 1))
 
         if MULTI:
-            x = MSConv2D(input, nodes[0], kernels)
-            x = MSConv2D(x, nodes[1], kernels)
-            x = MSConv2D(x, nodes[2], kernels)
-
-            x = MSConv2DTranspose(x, nodes[2], kernels)
-            x = MSConv2DTranspose(x, nodes[1], kernels)
-            x = MSConv2DTranspose(x, nodes[0], kernels)
+            x = multiscale_AE(input, nodes, kernels)
         else:
             x = normal_AE(input, nodes, kernels[2])
 
@@ -451,14 +457,14 @@ if __name__ == '__main__':
             label  = f'{width}_{nodes[2]}_{kernels[0]}_{kernels[1]}_{kernels[2]}'
         else:
             label  = f'{width}_{nodes[2]}_{kernels[2]}'
-        logdir = f"/scratch/gpfs/ar0535/spec_model_data/Multiscale/logs/"+label
+        logdir = LOGDIR + f"logs/"+label
         tensorboard_callback = TensorBoard(log_dir=logdir, histogram_freq=1)
         
         # Fix to use tensorboard
         autoencoder._get_distribution_strategy = lambda: None
         
         # Make directory to save model
-        model_dir = f'/scratch/gpfs/ar0535/spec_model_data/Multiscale/sweep_models/'
+        model_dir = LOGDIR + f'sweep_models/'
         trainingCallback = EpochCallback(model_dir, label)
         
         with tf.summary.create_file_writer(logdir).as_default():
@@ -475,7 +481,7 @@ if __name__ == '__main__':
         
         ### Make some plots and save errors
         n = 5 # Number of random test data spectrograms to plot
-        # post_process(file, autoencoder, hist, kernels, n, window_size, num_strips, label)
+        post_process(file, autoencoder, hist, kernels, n, window_size, num_strips, label)
         
         mins = int(np.floor((time.time() - start) / 60.0))
         print(f'Total time: {mins} min', flush=True)
