@@ -51,7 +51,7 @@ def get_params(JOB_ID):
         MULTI = False
         
     if JOB_ID in [0,1,2,3]:
-        num_samples = 20
+        num_samples = 4
         width = 32
         kernels = [5, 15, 25]
         if JOB_ID in [0,1]:
@@ -59,7 +59,7 @@ def get_params(JOB_ID):
         else:
             nodes = [2, 4, 8]
     elif JOB_ID in [4,5,6,7]:
-        num_samples = 12
+        num_samples = 2
         width = 16
         kernels = [5, 11, 15]
         if JOB_ID in [4,5]:
@@ -67,7 +67,7 @@ def get_params(JOB_ID):
         else:
             nodes = [2, 4, 8]
     elif JOB_ID in [8,9]:
-        num_samples = 6
+        num_samples = 1
         width = 8
         kernels = [3, 5, 9]
         nodes = [2, 4, 8]
