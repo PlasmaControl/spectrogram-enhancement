@@ -422,6 +422,8 @@ def multiscale_AE(input, nodes, kernels):
     x = MSConv2DTranspose(x, nodes[2], small_ker)
     x = MSConv2DTranspose(x, nodes[1], small_ker)
     x = MSConv2DTranspose(x, nodes[0], kernels)
+    
+    return x
 
 if __name__ == '__main__':
     start = time.time()
