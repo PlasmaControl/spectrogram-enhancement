@@ -76,7 +76,7 @@ def get_params(JOB_ID):
 
 def get_model_name(JOB_ID):
     # Directory holding the models
-    dir = '/scratch/gpfs/ar0535/spec_model_data/Multiscale/sweep_models/'
+    dir = '/scratch/gpfs/ar0535/spec_model_data/Multiscale/quick/sweep_models/'
     
     _, kernels, nodes, width, MULTI = get_params(JOB_ID)
     
