@@ -1,4 +1,3 @@
-from tkinter import X
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
@@ -14,10 +13,9 @@ from keras.callbacks import TensorBoard
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorboard.plugins.hparams import api as hp
 
 JOB_ID = int(os.environ["SLURM_ARRAY_TASK_ID"])
-LOGDIR = '/scratch/gpfs/ar0535/spec_model_data/Multiscale/quick/'
+LOGDIR = '/scratch/gpfs/ar0535/spec_model_data/Multiscale/'
 
 class EpochCallback(keras.callbacks.Callback):
     def __init__(self, model_dir, label) -> None:
@@ -125,34 +123,6 @@ def reshape(arr):
     arr = np.reshape(arr, (len(arr), shape[0], shape[1], 1))
     return arr
 
-# displays Sxx and final
-def display(noisy, processed, predictions, datapath, dset, n, window_size, num_strips):
-    tmax = num_strips * window_size[1]
-    t = np.array(dset['time'])[:tmax]
-    f = (np.array(dset['freq'])/1000)+1
-    
-    for i in range(n):
-        # Make plot 
-        fig = plt.figure(figsize=(8,12))
-        grd = gridspec.GridSpec(ncols=1, nrows=3, figure=fig)
-        ax=[None] * 3
-
-        ax[0] = fig.add_subplot(grd[0])
-        ax[0].pcolormesh(t,f,noisy[i,:,:],cmap='hot',shading='gouraud')
-        _=plt.ylabel('Original - Raw Data (kHz))')
-
-        ax[1] = fig.add_subplot(grd[1])
-        ax[1].pcolormesh(t,f,predictions[i,:,:],cmap='hot',shading='gouraud')
-        _=plt.ylabel('Predicted Denoised (kHz)')
-        
-        ax[2] = fig.add_subplot(grd[2])
-        ax[2].pcolormesh(t,f,processed[i,:,:],cmap='hot',shading='gouraud')
-        _=plt.ylabel('Pipeline (kHz)')
-
-        fname = datapath+'ex_spec'+str(i)+'.png'
-        plt.savefig(fname)
-        # plt.show()
-
 # Plots a spectrogram shot
 def plt_spec_shot(dset, predictions, noisy, caption, plot_name, window_size, num_strips):
     # Read data from hdf5 file and change shape of raw spectrogram
@@ -231,7 +201,6 @@ def normal_AE(input, nodes, kernel):
     '''
     Makes normal convolution based autoencoder to compare with multiscale one. 
     '''
-    
     # 2D Convolution each followed by a max pooling layer
     x = layers.Conv2D(nodes[0], (kernel,kernel), activation="relu", padding="same")(input)
     x = layers.MaxPooling2D((2, 2), padding="same")(x)
@@ -291,78 +260,6 @@ def get_samples(file, num_samples, window_size, num_strips, Split=True):
     else: 
         ### Return spectrograms in one group
         return (reshape(spectrograms), final)
-
-# saves plots and losses
-def post_process(file, autoencoder, hist, kernels, n, window_size, num_strips, label):
-    '''
-    Plot predictions for spectrograms and losses
-    '''
-    # Make directory to save model
-    data_path = LOGDIR + f'sweep_models/'
-    
-    # Save autoencoder Model
-    autoencoder.save(data_path+f'keras_model_'+label)
-    
-    '''
-    raw_specs, pipeline_specs = get_samples(file, n, window_size, num_strips, Split=False)
-    
-    ### Pick random data to plot (Done here bc I ran into memory errors)
-    # predict and reformat
-    predictions = autoencoder.predict(raw_specs)
-    predictions = np.squeeze(predictions, axis=3)
-    
-    # restitch everything together to a list of spectrograms
-    raw_specs_reshaped = np.squeeze(raw_specs, axis=3)
-    noisy = unpatch(raw_specs_reshaped, window_size, num_strips)
-    autoencoder_final = unpatch(predictions, window_size, num_strips)
-    pipeline_specs = unpatch(pipeline_specs, window_size, num_strips)
-    
-    # Sample data set for general time and freq data (axis for plotting)
-    shotn = '176053' # Shot we decide to look at
-    dset = file[shotn]['ece']['chn_1']
-    display(noisy, pipeline_specs, autoencoder_final, data_path, dset, n, window_size, num_strips)
-    
-    
-    plt.clf()
-    # Save validation loss and validation loss plot
-    val_loss = hist.history['val_loss']
-    train_loss = hist.history['loss']
-    plt.plot(train_loss)
-    plt.plot(val_loss)
-    plt.title('Model Loss')
-    plt.ylabel('Loss')
-    plt.xlabel('Epoch')
-    plt.legend(['train', 'test'], loc='upper right')
-    plt.show()
-    plt.savefig(data_path+'val_loss.png')
-    
-
-    shotn = '176053' # Shot we decide to look at
-    dset = file[shotn]['ece']['chn_1']
-    # Example prediction plot
-    logdir = LOGDIR + f"logs/"+label+"/plots"
-    # os.makedirs(logdir)
-    file_writer = tf.summary.create_file_writer(logdir)
-    for i in range(10, 13):
-        # Load specific channel data
-        dset = file[shotn]['ece'][f'chn_{i+1}']
-        
-        # Read raw data from hdf5 file and change shape of raw spectrogram
-        noisy = []
-        noisy.append(np.array(dset['spectrogram']))
-        noisy = patch(noisy, window_size, num_strips)
-        
-        # Predict spectrograms
-        predictions = autoencoder.predict(reshape(noisy))
-        
-        # Plot raw, processed, and predicted spectrograms
-        caption = caption = 'shot# '+ shotn +f', channel {i+1}'
-        fig = plt_spec_shot(dset, predictions, noisy, caption, data_path+f'plot_chn_{i+1}.png', window_size, num_strips)
-        
-        # Save plot in log
-        with file_writer.as_default():
-            tf.summary.image(f"chn_{i+1}", plot_to_image(fig), step=0)
-            '''       
     
 def plot_to_image(figure):
   """Converts the matplotlib plot specified by 'figure' to a PNG image and
@@ -414,11 +311,18 @@ def get_params(JOB_ID):
     return num_samples, kernels, nodes, width, MULTI
 
 def multiscale_AE(input, nodes, kernels):
+    '''
+    Creates a Multiscale denoising autoencoder using the
+    MSConv2D blocks and their transpose. 
+    '''
+    
+    # Encoder 
     small_ker = [1,3,5]
     x = MSConv2D(input, nodes[0], kernels)
     x = MSConv2D(x, nodes[1], small_ker)
     x = MSConv2D(x, nodes[2], small_ker)
 
+    # Deocder
     x = MSConv2DTranspose(x, nodes[2], small_ker)
     x = MSConv2DTranspose(x, nodes[1], small_ker)
     x = MSConv2DTranspose(x, nodes[0], kernels)
@@ -428,8 +332,9 @@ def multiscale_AE(input, nodes, kernels):
 if __name__ == '__main__':
     start = time.time()
     
-    ep = 5 # Epochs
+    ep = 50 # Epochs
 
+    # Get parameters for specific model
     num_samples, kernels, nodes, width, MULTI = get_params(JOB_ID)
 
     window_size = (256, width)
@@ -442,19 +347,19 @@ if __name__ == '__main__':
 
         # Initialize network
         input = layers.Input(shape = (window_size[0], window_size[1], 1))
-
         if MULTI:
             x = multiscale_AE(input, nodes, kernels)
         else:
             x = normal_AE(input, nodes, kernels[2])
-
         # End with normal 3x3 Convolutional Layer
         x = layers.Conv2D(1, (3,3), activation="sigmoid", padding="same")(x)
 
+        # Compile model
         autoencoder = Model(input, x)
         autoencoder.compile(optimizer="adam", loss="binary_crossentropy")
         autoencoder.summary()
 
+        # Create Callbacks for training
         if MULTI:
             label  = f'{width}_{nodes[2]}_{kernels[0]}_{kernels[1]}_{kernels[2]}'
         else:
@@ -482,9 +387,9 @@ if __name__ == '__main__':
                 callbacks=[tensorboard_callback],
             )
         
-        ### Make some plots and save errors
-        n = 5 # Number of random test data spectrograms to plot
-        post_process(file, autoencoder, hist, kernels, n, window_size, num_strips, label)
+        # Save model
+        data_path = LOGDIR + f'sweep_models/'
+        autoencoder.save(data_path+f'keras_model_'+label)
         
         mins = int(np.floor((time.time() - start) / 60.0))
         print(f'Total time: {mins} min', flush=True)
