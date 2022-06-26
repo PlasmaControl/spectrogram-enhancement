@@ -15,7 +15,7 @@ import tensorflow as tf
 from tensorflow import keras
 
 JOB_ID = int(os.environ["SLURM_ARRAY_TASK_ID"])
-LOGDIR = '/scratch/gpfs/ar0535/spec_model_data/Multiscale/'
+LOGDIR = '/scratch/gpfs/ar0535/spec_model_data/Multiscale/quick'
 
 class EpochCallback(keras.callbacks.Callback):
     def __init__(self, model_dir, label) -> None:
@@ -287,7 +287,7 @@ def get_params(JOB_ID):
         MULTI = False
         
     if JOB_ID in [0,1,2,3]:
-        num_samples = 8 # 200
+        num_samples = 200
         width = 32
         kernels = [5, 15, 25]
         if JOB_ID in [0,1]:
@@ -295,7 +295,7 @@ def get_params(JOB_ID):
         else:
             nodes = [2, 4, 8]
     elif JOB_ID in [4,5,6,7]:
-        num_samples = 4 # 120
+        num_samples = 120
         width = 16
         kernels = [5, 11, 15]
         if JOB_ID in [4,5]:
@@ -303,7 +303,7 @@ def get_params(JOB_ID):
         else:
             nodes = [2, 4, 8]
     elif JOB_ID in [8,9]:
-        num_samples = 2 # 60
+        num_samples = 60
         width = 8
         kernels = [3, 5, 9]
         nodes = [2, 4, 8]
@@ -332,7 +332,7 @@ def multiscale_AE(input, nodes, kernels):
 if __name__ == '__main__':
     start = time.time()
     
-    ep = 50 # Epochs
+    ep = 150 # Epochs
 
     # Get parameters for specific model
     num_samples, kernels, nodes, width, MULTI = get_params(JOB_ID)
