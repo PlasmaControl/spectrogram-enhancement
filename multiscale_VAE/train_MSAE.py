@@ -15,7 +15,7 @@ import tensorflow as tf
 from tensorflow import keras
 
 JOB_ID = int(os.environ["SLURM_ARRAY_TASK_ID"])
-LOGDIR = '/scratch/gpfs/ar0535/spec_model_data/Multiscale/quick'
+LOGDIR = '/scratch/gpfs/ar0535/spec_model_data/Multiscale/quick/'
 
 class EpochCallback(keras.callbacks.Callback):
     def __init__(self, model_dir, label) -> None:
