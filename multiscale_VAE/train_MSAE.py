@@ -332,7 +332,7 @@ def multiscale_AE(input, nodes, kernels):
 if __name__ == '__main__':
     start = time.time()
     
-    ep = 60 # Epochs
+    ep = 50 # Epochs
 
     # Get parameters for specific model
     num_samples, kernels, nodes, width, MULTI = get_params(JOB_ID)
