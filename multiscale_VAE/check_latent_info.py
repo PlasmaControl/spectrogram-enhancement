@@ -63,6 +63,8 @@ SHOTS = np.asarray([ '132710', '138388',
                           '178641', '178872',
                           '170672', '178633'])
 
+AE_type = np.asarray(['LFM', 'BAE', 'RSAE', 'TAE'])
+
 def get_params(JOB_ID):
     '''
     Returns parameters based on job array index
@@ -216,8 +218,6 @@ def reshape(arr):
 def process_inputs(x, y, window_size, num_strips):    
     # Keep reshaping and split into test/train
     n_valid = 5
-    n_test = 5
-    n_train = x.shape[0] - n_valid - n_test
     test_inds = [1, 6, 14, 11, 18]  #, 23] 
     
     valid_inds = [i for i in range(x.shape[0]) if i not in test_inds]
@@ -298,6 +298,117 @@ def patch_label(y, shots, width, num_strips):
     
     return labels
 
+def make_nice_fig(spec, y_test_batch, y_test_latent, y_test_denoise, t, shotnum):
+    ts = 20 #font size
+    fs = 26
+    linestyles = ['-',':','--','-.']
+    
+    channels = [13,17]
+
+    plt.clf()
+    fig = plt.figure(figsize=(18,24))
+    grd = gridspec.GridSpec(ncols=2, nrows=4, figure=fig)
+    f = np.linspace(1,256, num=256)
+
+    for i, channel in enumerate(channels):
+        labels_i = np.squeeze(y_test_batch[channel,:,:])
+        labels_i_latent = np.squeeze(y_test_latent[channel, :, :])
+        labels_i_denoise = np.squeeze(y_test_denoise[channel, :, :])
+        for j in range(4):
+            labels_i_latent[:, j] = np.convolve(labels_i_latent[:, j],
+                                            np.ones(100), 'same') / 100
+            labels_i_denoise[:,j] = np.convolve(labels_i_denoise[:, j],
+                                            np.ones(100), 'same') / 100
+        
+        # Plot spectrogram
+        ax0 = plt.subplot(grd[0, i])
+        ax0.pcolormesh(t, f, spec[channel,:,:].T, cmap='hot')
+
+        ax0.set_title(f'Shot {shotnum} Channel #{channel+1}', fontsize=fs)
+        if i != 0:
+            ax0.set_yticklabels([])
+        else:
+            ax0.set_ylabel('ECE Data: f (kHz)', fontsize=fs)
+            ax0.tick_params(axis='y', labelsize=ts)
+        ax0.set_xlim(0, 1.9)
+        ax0.set_xticks([0, 0.5, 1.0, 1.5])
+        ax0.set_xticklabels([])
+        
+        # Plot true labels
+        ax1 = plt.subplot(grd[1, i])
+        for k in range(4):
+            ax1.plot(t, labels_i[:, k], label=AE_type[k], linestyle=linestyles[k])
+        ax1.grid(True)
+        if i != 0:
+            ax1.set_yticklabels([])
+        else:
+            ax1.set_ylabel('Manual labels', fontsize=fs)
+            ax1.tick_params(axis='y', labelsize=ts)
+            ax1.legend(fontsize=ts + 2, framealpha=1.0)
+        ax1.set_ylim(0, 1.1)
+        ax1.set_yticks([0, 0.25, 0.5, 0.75, 1])
+        if i == 0:
+            ax1.set_yticklabels([0, 0.25, 0.5, 0.75, 1])
+        ax1.set_xlim(0, 1.9)
+        ax1.set_xticks([0, 0.5, 1.0, 1.5])
+        ax1.set_xticklabels([])
+        
+        # Latent Predicted Labels
+        ax2 = plt.subplot(grd[2, i])
+        for k in range(4):
+            ax2.plot(t, labels_i_latent[:, k], label=AE_type[k], linestyle=linestyles[k])
+        ax2.grid(True)
+        if i != 0:
+            ax2.set_yticklabels([])
+        else:
+            ax2.set_ylabel('Latent Model labels', fontsize=fs)
+            ax2.tick_params(axis='y', labelsize=ts)
+        ax2.set_xlabel('Time (s)', fontsize=fs)
+        ax2.tick_params(axis='x', labelsize=ts)
+        ax2.set_ylim(0, 1.1)
+        ax2.set_yticks([0, 0.25, 0.5, 0.75, 1])
+        if i == 0:
+            ax2.set_yticklabels([0, 0.25, 0.5, 0.75, 1])
+        ax2.set_xlim(0, 1.9)
+        ax2.set_xticks([0, 0.5, 1.0, 1.5])
+        
+        # Denoised Predicted Labels
+        ax3 = plt.subplot(grd[3, i])
+        for k in range(4):
+            ax3.plot(t, labels_i_denoise[:, k], label=AE_type[k], linestyle=linestyles[k])
+        ax3.grid(True)
+        if i != 0:
+            ax3.set_yticklabels([])
+        else:
+            ax3.set_ylabel('Denoised Model labels', fontsize=fs)
+            ax3.tick_params(axis='y', labelsize=ts)
+        ax3.set_xlabel('Time (s)', fontsize=fs)
+        ax3.tick_params(axis='x', labelsize=ts)
+        ax3.set_ylim(0, 1.1)
+        ax3.set_yticks([0, 0.25, 0.5, 0.75, 1])
+        if i == 0:
+            ax3.set_yticklabels([0, 0.25, 0.5, 0.75, 1])
+        ax3.set_xlim(0, 1.9)
+        ax3.set_xticks([0, 0.5, 1.0, 1.5])
+        
+    return fig
+
+def plot_to_image(figure):
+  """Converts the matplotlib plot specified by 'figure' to a PNG image and
+  returns it. The supplied figure is closed and inaccessible after this call."""
+  # Save the plot to a PNG in memory.
+  buf = io.BytesIO()
+  plt.savefig(buf, format='png')
+  # Closing the figure prevents it from being displayed directly inside
+  # the notebook.
+  plt.close(figure)
+  buf.seek(0)
+  # Convert PNG buffer to TF image
+  image = tf.image.decode_png(buf.getvalue(), channels=4)
+  # Add the batch dimension
+  image = tf.expand_dims(image, 0)
+  return image
+
 if __name__ == '__main__':
     start = time.time()
     n_labels = 4
@@ -377,7 +488,7 @@ if __name__ == '__main__':
     # Simple 3 Layer MLP
     denoise_model = models.Sequential()
     denoise_model.add(layers.Dense(hidden, 
-                           input_dim=autoencoder.output,
+                           input_dim=autoencoder.input,
                            activation='relu'))
     denoise_model.add(layers.Dropout(dropout))
     denoise_model.add(layers.Dense(hidden, activation='relu'))
@@ -406,5 +517,21 @@ if __name__ == '__main__':
     
     
     # 7. If it doesn't take too long, run on noisy data as baseline
+    
+    # 8. Make some sample plots to look at
+    n_test = 5
+    test_inds = [1, 6, 14, 11, 18]  #, 23]
+    
+    y_test_latent  = latent_model.predict(x_test)
+    y_test_denoise = denoise_model.predict(x_test)
+    
+    file_writer = tf.summary.create_file_writer(LOGDIR+label+'/plots')
+    
+    for i in range(n_test):
+        fig = make_nice_fig(x_test[i,:,:,:], y_test[i,:,:,:], y_test_latent[i,:,:,:], y_test_denoise[i,:,:,:], t, SHOTS[test_inds[i]])
+        
+        # Save plot in log
+        with file_writer.as_default():
+            tf.summary.image(f"chn_{i+1}", plot_to_image(fig), step=0)
     
     print(f'Total time: {int((time.time()-start)/60)} min')
