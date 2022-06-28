@@ -421,7 +421,7 @@ if __name__ == '__main__':
     
     # 1. Load Alan's labeled training data + process into appropriate slices (maybe allow overlapping if I need more slices, but atm unsure)
     x, y, t, f = load_ECE_data()
-    num_strips = int(np.floor(t / window_size[1]))
+    num_strips = int(np.floor(len(t) / window_size[1]))
     
     # Split into test, train, valid and form into patches
     x_test, x_train, x_valid, y_test, y_train, y_valid = process_inputs(x, y, window_size, num_strips)
