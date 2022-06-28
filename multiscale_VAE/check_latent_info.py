@@ -177,6 +177,8 @@ def patch(arr, window_size, num_strips):
     all_patches = np.empty((num_specs * num_strips, height, width))
     for i in range(len(arr)):
         for strip in range(num_strips):
+            print(np.shape(arr), flush=True)
+            print(np.shape(arr[i], flush=True))
             all_patches[strip + num_strips * i] = np.transpose(arr[i][strip*width:(strip+1)*width,:])
     
     return all_patches
