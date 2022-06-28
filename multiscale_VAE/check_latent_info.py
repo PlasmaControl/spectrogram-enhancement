@@ -158,7 +158,7 @@ def patch(arr, window_size, num_strips):
     time slices of the spectrograms
     
     arr has dimensions: 
-    (# full spectrograms, 256 freq, total times: 3905 normally)
+    (# full spectrograms, total times: 3905 normally, 256 freq)
     
     all_patches has dimensions:
     (# strips * # full spectrograms, 256 freq, time width of strips) 
@@ -177,7 +177,7 @@ def patch(arr, window_size, num_strips):
     all_patches = np.empty((num_specs * num_strips, height, width))
     for i in range(len(arr)):
         for strip in range(num_strips):
-            all_patches[strip + num_strips * i] = arr[i][:,strip*width:(strip+1)*width]
+            all_patches[strip + num_strips * i] = np.transpose(arr[i][strip*width:(strip+1)*width,:])
     
     return all_patches
 
