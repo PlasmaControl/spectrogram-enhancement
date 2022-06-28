@@ -169,14 +169,9 @@ def patch(arr, window_size, num_strips):
     # Unpack sizes and find number of strips
     height = window_size[0]
     width  = window_size[1]
-    length = np.shape(arr)[2]
+    length = np.shape(arr)[1]
     num_specs = np.shape(arr)[0]
 
-
-    print(np.shape(arr), flush=True)
-    print(window_size, flush=True)
-    print(num_strips, flush=True)
-    print(np.floor(length / width), flush=True)
     assert num_strips == int(np.floor(length / width))
     
     all_patches = np.empty((num_specs * num_strips, height, width))
