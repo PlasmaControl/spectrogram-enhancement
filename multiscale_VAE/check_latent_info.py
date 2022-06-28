@@ -121,10 +121,10 @@ def load_ECE_data(h5_file='/projects/EKOLEMEN/ae_andy/MLP_specs.h5', n_channels=
         for k,shot in enumerate(SHOTS):
             Sxx = []
             
-            t = np.asarray(file[shot]['ece']['chn_1']['time'])
-            f = np.asarray(file[shot]['ece']['chn_1']['freq'])
+            t = np.asarray(file[shot]['ece']['chn_1']['t'])
+            f = np.asarray(file[shot]['ece']['chn_1']['f'])
             for i in range(n_channels):
-                s = np.asarray(file[shot]['ece']['chn_'+str(i+1)]['sprectrogram'])
+                s = np.asarray(file[shot]['ece']['chn_'+str(i+1)]['s'])
                 Sxx.append(s)
             
             M = len(t)
