@@ -8,7 +8,7 @@ import time
 import random
 import io
 
-from keras import layers
+from keras import layers, models
 from keras.models import Model, load_model
 from keras.callbacks import TensorBoard
 
@@ -17,6 +17,7 @@ from tensorflow import keras
 from tensorboard.plugins.hparams import api as hp
 
 JOB_ID = int(os.environ["SLURM_ARRAY_TASK_ID"])
+LOGDIR = '/scratch/gpfs/ar0535/spec_model_data/latent_comp/'
 
 # The database labels
 AE_TYPE = np.asarray(['LFM', 'BAE', 'RSAE', 'TAE'])
@@ -299,10 +300,13 @@ def patch_label(y, shots, width, num_strips):
 
 if __name__ == '__main__':
     start = time.time()
+    n_labels = 4
+    dropout = 0.3
+    ep = 10
     
     num_samples, kernels, nodes, width, MULTI = get_params(JOB_ID)
     window_size = (256, width)
-    label_window = (4, width)
+    label_window = (n_labels, width)
     
     # 1. Load Alan's labeled training data + process into appropriate slices (maybe allow overlapping if I need more slices, but atm unsure)
     x, y, t, f = load_ECE_data()
@@ -321,9 +325,86 @@ if __name__ == '__main__':
         last_encoder = 6  # Need to double check this
     encoder = Model(inputs=autoencoder.input, outputs=autoencoder.layers[last_encoder].output)
     
+    # 4. Run encoder and full denoiser on dataset
+    x_test_latent = encoder.predict(x_test)
+    x_train_latent = encoder.predict(x_train)
+    x_valid_latent = encoder.predict(x_valid)
     
-    # 4. Train basic MLP of similar form to Alan's, for both latent and decoded data sets
-    #       Keep layer size and num of layers consistent for time widths, but can use smaller layers for smaller widths
+    x_test_denoise = autoencoder.predict(x_test)
+    x_train_denoise = autoencoder.predict(x_train)
+    x_valid_denoise = autoencoder.predict(x_valid)
     
+    # 5. Train basic MLP for latent space (simple 3 MLP with nodes = 2x number of latent space nodes)
+    latent_nodes = int(window_size[0]/8) * int(window_size[1]/8) * nodes[2]
+    hidden = latent_nodes * 2
+    
+    # Simple 3 Layer MLP
+    latent_model = models.Sequential()
+    latent_model.add(layers.Dense(hidden, 
+                           input_dim=encoder.output, 
+                           activation='relu'))
+    latent_model.add(layers.Dropout(dropout))
+    latent_model.add(layers.Dense(hidden, activation='relu'))
+    latent_model.add(layers.Dropout(dropout))
+    latent_model.add(layers.Dense(hidden, activation='relu'))
+    latent_model.add(layers.Dropout(dropout))
+    latent_model.add(layers.Dense(n_labels, activation='sigmoid'))
+
+    latent_model.compile(loss='mse')
+    
+    if MULTI:
+        label  = f'{width}_{nodes[2]}_{kernels[0]}_{kernels[1]}_{kernels[2]}'
+    else:
+        label  = f'{width}_{nodes[2]}_{kernels[2]}'
+    
+    latent_callback = TensorBoard(log_dir=LOGDIR+'logs/'+label+'/latent', histogram_freq=1)
+    
+    # Fix to use tensorboard
+    latent_model._get_distribution_strategy = lambda: None
+    
+    # Train model and record to tensorboard
+    history = latent_model.fit(x_train_latent, y_train, 
+                        validation_data=(x_valid_latent, y_valid),
+                        epochs=ep,
+                        batch_size=128,
+                        callbacks=[latent_callback]
+                        )
+    
+    # Save model
+    latent_model.save(LOGDIR+'models/'+label+'/latent_model')
+    
+    # 6. Train basic MLP for denoised (using same MLP size as latent space training)
+    # Simple 3 Layer MLP
+    denoise_model = models.Sequential()
+    denoise_model.add(layers.Dense(hidden, 
+                           input_dim=autoencoder.output,
+                           activation='relu'))
+    denoise_model.add(layers.Dropout(dropout))
+    denoise_model.add(layers.Dense(hidden, activation='relu'))
+    denoise_model.add(layers.Dropout(dropout))
+    denoise_model.add(layers.Dense(hidden, activation='relu'))
+    denoise_model.add(layers.Dropout(dropout))
+    denoise_model.add(layers.Dense(n_labels, activation='sigmoid'))
+
+    denoise_model.compile(loss='mse')
+    
+    denoise_callback = TensorBoard(log_dir=LOGDIR+'logs/'+label+'/denoise', histogram_freq=1)
+    
+    # Fix to use tensorboard
+    denoise_model._get_distribution_strategy = lambda: None
+    
+    # Train model and record to tensorboard
+    history = denoise_model.fit(x_train_denoise, y_train, 
+                        validation_data=(x_valid_denoise, y_valid),
+                        epochs=ep,
+                        batch_size=128,
+                        callbacks=[denoise_callback]
+                        )
+    
+    # Save model
+    denoise_model.save(LOGDIR+'models/'+label+'/denoise_model')
+    
+    
+    # 7. If it doesn't take too long, run on noisy data as baseline
     
     print(f'Total time: {int((time.time()-start)/60)} min')
