@@ -174,7 +174,7 @@ def patch(arr, window_size, num_strips):
 
     assert num_strips == int(np.floor(length / width))
     
-    all_patches = np.empty((num_specs * num_strips, height, width))
+    all_patches = np.empty((num_specs * num_strips, width, height))
     for i in range(len(arr)):
         for strip in range(num_strips):
             all_patches[strip + num_strips * i] = arr[i,strip*width:(strip+1)*width,:]
@@ -223,13 +223,11 @@ def process_inputs(x, y, window_size, num_strips):
     valid_inds = [i for i in range(x.shape[0]) if i not in test_inds]
     valid_inds = np.random.choice(valid_inds, n_valid, replace=False)
 
-    print(np.shape(x), flush=True)
+    # Reshape to (shots, channels, time, freq)
     x = np.transpose(x, axes=[0,3,2,1])
-    print(np.shape(x), flush=True)
 
-    print(np.shape(y), flush=True)
+    # Reshape to (shots, channels, time, label)
     y = np.transpose(y, axes=[0,2,1,3])
-    print(np.shape(y), flush=True)
 
     # test shots are 138388, 159246, 163147, 178631, 178637, 
     train_inds = [i for i in range(x.shape[0]) if i not in test_inds and i not in valid_inds]
