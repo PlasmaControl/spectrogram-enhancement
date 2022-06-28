@@ -149,7 +149,7 @@ def load_ECE_data(h5_file='/projects/EKOLEMEN/ae_andy/MLP_specs.h5', n_channels=
                     
             y.append(vector_label)
             x.append(Sxx)  # output data
-    return (np.asarray(x), np.asarray(y)), t, f
+    return np.asarray(x), np.asarray(y), t, f
 
 # patches all the strips together to 1 spectrogram
 def patch(arr, window_size, num_strips):
