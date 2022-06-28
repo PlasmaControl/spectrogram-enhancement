@@ -172,6 +172,8 @@ def patch(arr, window_size, num_strips):
     length = np.shape(arr)[2]
     num_specs = np.shape(arr)[0]
 
+    print(num_strips, flush=True)
+    print(np.floor(length / width), flush=True)
     assert num_strips == np.floor(length / width)
     
     all_patches = np.empty((num_specs * num_strips, height, width))
