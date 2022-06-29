@@ -467,13 +467,13 @@ if __name__ == '__main__':
     shapes = np.shape(x_test_denoise)
     denoise_dims = shapes[1] * shapes[2] * shapes[3]
     
-    x_test_latent = np.reshape((len(x_test_latent), latent_dims))
-    x_train_latent = np.reshape((len(x_train_latent), latent_dims))
-    x_valid_latent = np.reshape((len(x_valid_latent), latent_dims))
+    x_test_latent = np.reshape(x_test_latent, (len(x_test_latent), latent_dims))
+    x_train_latent = np.reshape(x_train_latent, (len(x_train_latent), latent_dims))
+    x_valid_latent = np.reshape(x_valid_latent, (len(x_valid_latent), latent_dims))
     
-    x_test_denoise = np.reshape((len(x_test_denoise), denoise_dims))
-    x_train_denoise = np.reshape((len(x_train_denoise), denoise_dims))
-    x_valid_denoise = np.reshape((len(x_valid_denoise), denoise_dims))
+    x_test_denoise = np.reshape(x_test_denoise, (len(x_test_denoise), denoise_dims))
+    x_train_denoise = np.reshape(x_train_denoise, (len(x_train_denoise), denoise_dims))
+    x_valid_denoise = np.reshape(x_valid_denoise, (len(x_valid_denoise), denoise_dims))
     
     # 5. Train basic MLP for latent space (simple 3 MLP with nodes = 2x number of latent space nodes)
     latent_nodes = int(window_size[0]/8) * int(window_size[1]/8) * nodes[2]
