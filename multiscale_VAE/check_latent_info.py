@@ -226,7 +226,6 @@ def process_inputs(x, y, window_size, num_strips):
     # Reshape to (shots, channels, time, freq)
     x = np.transpose(x, axes=[0,3,2,1])
 
-    print(np.shape(y), flush=True)
     # Reshape to (shots, channels, time, label)
     y = np.transpose(y, axes=[0,2,1,3])
 
@@ -293,7 +292,6 @@ def patch_label(y, shots, width, num_strips):
     
     Note on ordering: matches patch_spec() order
     '''
-    print(np.shape(x), flush=True)
     channels = np.shape(x)[1]
     labels = np.zeros((len(shots)*channels*num_strips, 4))
     
