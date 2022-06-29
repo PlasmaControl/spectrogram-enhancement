@@ -429,7 +429,7 @@ if __name__ == '__main__':
     start = time.time()
     n_labels = 4
     dropout = 0.3
-    ep = 10
+    ep = 100
     
     num_samples, kernels, nodes, width, MULTI = get_params(JOB_ID)
     window_size = (256, width)
@@ -513,7 +513,11 @@ if __name__ == '__main__':
                         )
     
     # Save model
-    latent_model.save(LOGDIR+'models/'+label+'/latent_model')
+    # Save model
+    path = LOGDIR+'models/'+label
+    if not os.path.exists(path):
+        os.makedirs(path)
+    latent_model.save(path+'/latent_model')
     
     # 6. Train basic MLP for denoised (using same MLP size as latent space training)
     # Simple 3 Layer MLP   
@@ -544,7 +548,10 @@ if __name__ == '__main__':
                         )
     
     # Save model
-    denoise_model.save(LOGDIR+'models/'+label+'/denoise_model')
+    path = LOGDIR+'models/'+label
+    if not os.path.exists(path):
+        os.makedirs(path)
+    denoise_model.save(path+'/denoise_model')
     
     
     # 7. If it doesn't take too long, run on noisy data as baseline
