@@ -479,7 +479,7 @@ if __name__ == '__main__':
     
     latent_model = Model(input, x)
 
-    latent_model.compile(loss='mse')
+    latent_model.compile(loss='mse', optimizer='adam')
     print('Compiled model', flush=True)
     
     if MULTI:
@@ -516,7 +516,7 @@ if __name__ == '__main__':
     
     denoise_model = Model(input, x)
 
-    denoise_model.compile(loss='mse')
+    denoise_model.compile(loss='mse', optimizer='adam')
     
     denoise_callback = TensorBoard(log_dir=LOGDIR+'logs/'+label+'/denoise', histogram_freq=1)
     
