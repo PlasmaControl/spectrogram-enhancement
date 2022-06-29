@@ -467,17 +467,17 @@ if __name__ == '__main__':
     
     print('Before making model', flush=True)
     # Simple 3 Layer MLP
-    input_dims = np.asarray(encoder.output.shape)
-    latent_model = models.Sequential()
-    latent_model.add(layers.Dense(hidden, 
-                           input_dim=input_dims, 
-                           activation='relu'))
-    latent_model.add(layers.Dropout(dropout))
-    latent_model.add(layers.Dense(hidden, activation='relu'))
-    latent_model.add(layers.Dropout(dropout))
-    latent_model.add(layers.Dense(hidden, activation='relu'))
-    latent_model.add(layers.Dropout(dropout))
-    latent_model.add(layers.Dense(n_labels, activation='sigmoid'))
+    shapes = np.shape(x_train_latent)
+    input = layers.Input(shape = (shapes[1], shapes[2],1))
+    x = layers.Dense(hidden, activation='relu')(input)
+    x = layers.Dropout(dropout)(x)
+    x = layers.Dense(hidden, activation='relu')(x)
+    x = layers.Dropout(dropout)(x)
+    x = layers.Dense(hidden, activation='relu')(x)
+    x = layers.Dropout(dropout)(x)
+    x = layers.Dense(n_labels, activation='sigmoid')(x)
+    
+    latent_model = Model(input, x)
 
     latent_model.compile(loss='mse')
     print('Compiled model', flush=True)
@@ -504,18 +504,17 @@ if __name__ == '__main__':
     latent_model.save(LOGDIR+'models/'+label+'/latent_model')
     
     # 6. Train basic MLP for denoised (using same MLP size as latent space training)
-    # Simple 3 Layer MLP
-    input_dims = np.asarray(autoencoder.input.shape)
-    denoise_model = models.Sequential()
-    denoise_model.add(layers.Dense(hidden, 
-                           input_dim=input_dims,
-                           activation='relu'))
-    denoise_model.add(layers.Dropout(dropout))
-    denoise_model.add(layers.Dense(hidden, activation='relu'))
-    denoise_model.add(layers.Dropout(dropout))
-    denoise_model.add(layers.Dense(hidden, activation='relu'))
-    denoise_model.add(layers.Dropout(dropout))
-    denoise_model.add(layers.Dense(n_labels, activation='sigmoid'))
+    # Simple 3 Layer MLP   
+    input = layers.Input(shape = (window_size[0], window_size[1],1))
+    x = layers.Dense(hidden, activation='relu')(input)
+    x = layers.Dropout(dropout)(x)
+    x = layers.Dense(hidden, activation='relu')(x)
+    x = layers.Dropout(dropout)(x)
+    x = layers.Dense(hidden, activation='relu')(x)
+    x = layers.Dropout(dropout)(x)
+    x = layers.Dense(n_labels, activation='sigmoid')(x)
+    
+    denoise_model = Model(input, x)
 
     denoise_model.compile(loss='mse')
     
