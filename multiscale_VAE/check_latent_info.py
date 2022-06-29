@@ -308,7 +308,7 @@ def patch_label(y, shots, width, num_strips):
     for m, shot in enumerate(shots):
         for chn in range(channels):
             for strip in range(num_strips):
-                ind = m*len(shots) + chn * channels + strip
+                ind = m * num_strips * channels + chn * num_strips + strip
                 t_ind = strip*width
                 labels[ind,:] = np.any(y[shot,chn,t_ind:t_ind+width,:], axis=0)
     
@@ -455,7 +455,7 @@ if __name__ == '__main__':
     
     total = np.shape(y_test)[0] + np.shape(y_train)[0] + np.shape(y_valid)[0]
     
-    percent_AEs = (test_AE + train_AE + valid_AE) / num_strips / total
+    percent_AEs = (test_AE + train_AE + valid_AE) / total
     print('Percent of AE activity for LFM, BAE, RSAE, TAE:', percent_AEs * 100, flush=True)
     print('Average AE activity', np.mean(percent_AEs) * 100, flush=True)
     
