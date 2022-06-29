@@ -442,8 +442,39 @@ if __name__ == '__main__':
     x, y, t, f = load_ECE_data()
     num_strips = int(np.floor(len(t) / window_size[1]))
     
+    # Save x for plotting, format (shotn, chan, freq, time)
+    x_plot = np.transpose(x, axes=[0,3,2,1])
+    
     # Split into test, train, valid and form into patches
     x_test, x_train, x_valid, y_test, y_train, y_valid = process_inputs(x, y, window_size, num_strips)
+    
+    # Print percent of AE activity
+    test_AE = np.sum(y_test, axis=(0,1))
+    train_AE = np.sum(y_train, axis=(0,1))
+    valid_AE = np.sum(y_valid, axis=(0,1))
+    
+    total = np.shape(y_test)[0] + np.shape(y_train)[0] + np.shape(y_valid)[0]
+    
+    percent_AEs = (test_AE + train_AE + valid_AE) / num_strips / total
+    print('Percent of AE activity for LFM, BAE, RSAE, TAE:', percent_AEs * 100, flush=True)
+    print('Average AE activity', np.mean(percent_AEs) * 100, flush=True)
+    
+    # Count each individual AE activity
+    counts = np.zeros(4, dtype=int)
+    for k, label in enumerate(LABELS):
+        t1, t2, f1, f2, channels, ylabel = np.loadtxt(
+            '/projects/EKOLEMEN/ece_cnn/MLP_baseline/label_directory/' + label, 
+            skiprows=1, 
+            unpack=True, 
+            delimiter=', ',
+            dtype=str
+        )
+        counts[0] += np.sum(ylabel=='LFM')
+        counts[1] += np.sum(ylabel=='BAE')
+        counts[2] += np.sum(ylabel=='RSAE')
+        counts[3] += np.sum(ylabel=='TAE')
+
+    print('Number of LFM, BAE, RSAE, TAE:', counts, flush=True)
     
     # 2. Grab models from saved folder
     autoencoder = load_model(get_model_name(JOB_ID))
@@ -562,16 +593,13 @@ if __name__ == '__main__':
     n_test = 5
     test_inds = [1, 6, 14, 11, 18]  #, 23]
     
-    # Format (shotn, chan, freq, time)
-    x = np.transpose(x, axes=[0,3,2,1])
-    
     y_test_latent  = latent_model.predict(x_test_latent)
     y_test_denoise = denoise_model.predict(x_test_denoise)
     
     file_writer = tf.summary.create_file_writer(LOGDIR+label+'/plots')
     
     for i in range(n_test):
-        fig = make_nice_fig(x[test_inds[i],:,:,:], y_test[i,:,:,:], y_test_latent[i,:,:,:], 
+        fig = make_nice_fig(x_plot[test_inds[i],:,:,:], y_test[i,:,:,:], y_test_latent[i,:,:,:], 
                             y_test_denoise[i,:,:,:], t, SHOTS[test_inds[i]])
         
         # Save plot in log
