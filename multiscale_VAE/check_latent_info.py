@@ -227,7 +227,7 @@ def process_inputs(x, y, window_size, num_strips):
     x = np.transpose(x, axes=[0,3,2,1])
 
     # Reshape to (shots, channels, time, label)
-    y = np.transpose(y, axes=[0,3,1,2])
+    y = np.transpose(y, axes=[0,2,1,3])
 
     # test shots are 138388, 159246, 163147, 178631, 178637, 
     train_inds = [i for i in range(x.shape[0]) if i not in test_inds and i not in valid_inds]
