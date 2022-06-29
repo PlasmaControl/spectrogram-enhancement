@@ -292,6 +292,7 @@ def patch_label(y, shots, width, num_strips):
     
     Note on ordering: matches patch_spec() order
     '''
+    print(np.shape(x), flush=True)
     channels = np.shape(x)[1]
     labels = np.zeros((len(shots)*channels*num_strips, 4))
     
