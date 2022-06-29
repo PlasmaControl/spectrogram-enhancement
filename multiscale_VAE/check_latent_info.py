@@ -21,6 +21,7 @@ LOGDIR = '/scratch/gpfs/ar0535/spec_model_data/latent_comp/'
 
 # The database labels
 AE_TYPE = np.asarray(['LFM', 'BAE', 'RSAE', 'TAE'])
+N_CHANNELS = 40
 LABELS = np.asarray(['labels_132710.txt', 'labels_138388.txt',
                      'labels_142111.txt', 'labels_153068.txt',
                      'labels_153592.txt', 'labels_159243.txt', 
@@ -314,6 +315,28 @@ def patch_label(y, shots, width, num_strips):
     
     return labels
 
+def unpatch_label(label_strips, n_shots, n_channels, num_strips, width, n_labels=4):
+    '''
+    Takes labels of form:
+    (n_shots*n_channels*num_strips, num labels)
+    
+    and returns labels with dims
+    (n_shots, n_channels, time, num labels)
+    '''
+    labels = np.zeros((n_shots, n_channels, width*num_strips, n_labels))
+    
+    for shot in range(n_shots):
+        for chn in range(n_channels):
+            for strip in range(num_strips):
+                ind = shot * num_strips * n_channels + chn * num_strips + strip
+                t_ind = strip*width
+                
+                # Copy labels to be (width,4) with repeated predicted label
+                temp = np.outer(np.ones((width)), label_strips[ind,:])
+                labels[shot, chn, t_ind:t_ind+width,:] = temp
+    
+    return labels
+
 def make_nice_fig(spec, y_test_batch, y_test_latent, y_test_denoise, t, shotnum):
     '''
     spec format: (chan, time, freq)
@@ -432,7 +455,7 @@ if __name__ == '__main__':
     start = time.time()
     n_labels = 4
     dropout = 0.3
-    ep = 30
+    ep = 20
     
     num_samples, kernels, nodes, width, MULTI = get_params(JOB_ID)
     window_size = (256, width)
@@ -449,9 +472,9 @@ if __name__ == '__main__':
     x_test, x_train, x_valid, y_test, y_train, y_valid = process_inputs(x, y, window_size, num_strips)
     
     # Print percent of AE activity
-    test_AE = np.sum(y_test, axis=(0,1))
-    train_AE = np.sum(y_train, axis=(0,1))
-    valid_AE = np.sum(y_valid, axis=(0,1))
+    test_AE = np.sum(y_test, axis=0)
+    train_AE = np.sum(y_train, axis=0)
+    valid_AE = np.sum(y_valid, axis=0)
     
     total = np.shape(y_test)[0] + np.shape(y_train)[0] + np.shape(y_valid)[0]
     
@@ -595,6 +618,15 @@ if __name__ == '__main__':
     
     y_test_latent  = latent_model.predict(x_test_latent)
     y_test_denoise = denoise_model.predict(x_test_denoise)
+    
+    y_test = unpatch_label(y_test, len(test_inds), N_CHANNELS,
+                           num_strips, width)
+    
+    y_test_latent = unpatch_label(y_test_latent, len(test_inds), 
+                                  N_CHANNELS, num_strips, width)
+    
+    y_test_denoise = unpatch_label(y_test_denoise, len(test_inds), 
+                                  N_CHANNELS, num_strips, width)
     
     file_writer = tf.summary.create_file_writer(LOGDIR+label+'/plots')
     
