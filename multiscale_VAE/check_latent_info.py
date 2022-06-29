@@ -465,7 +465,6 @@ if __name__ == '__main__':
     latent_nodes = int(window_size[0]/8) * int(window_size[1]/8) * nodes[2]
     hidden = latent_nodes * 2
     
-    print('Before making model', flush=True)
     # Simple 3 Layer MLP
     shapes = np.shape(x_train_latent)
     input = layers.Input(shape = (shapes[1], shapes[2],shapes[3]))
@@ -480,7 +479,7 @@ if __name__ == '__main__':
     latent_model = Model(input, x)
 
     latent_model.compile(loss='mse', optimizer='adam')
-    print('Compiled model', flush=True)
+    latent_model.summary()
     
     if MULTI:
         label  = f'{width}_{nodes[2]}_{kernels[0]}_{kernels[1]}_{kernels[2]}'
