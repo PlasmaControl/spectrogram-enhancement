@@ -480,7 +480,7 @@ if __name__ == '__main__':
     hidden = latent_nodes * 2
     
     # Simple 3 Layer MLP
-    input = layers.Input(shape = (latent_dims))
+    input = layers.Input(shape = (latent_dims,))
     x = layers.Dense(hidden, activation='relu')(input)
     x = layers.Dropout(dropout)(x)
     x = layers.Dense(hidden, activation='relu')(x)
@@ -517,7 +517,7 @@ if __name__ == '__main__':
     
     # 6. Train basic MLP for denoised (using same MLP size as latent space training)
     # Simple 3 Layer MLP   
-    input = layers.Input(shape = (denoise_dims))
+    input = layers.Input(shape = (denoise_dims,))
     x = layers.Dense(hidden, activation='relu')(input)
     x = layers.Dropout(dropout)(x)
     x = layers.Dense(hidden, activation='relu')(x)
