@@ -461,13 +461,26 @@ if __name__ == '__main__':
     x_train_denoise = autoencoder.predict(x_train)
     x_valid_denoise = autoencoder.predict(x_valid)
     
+    # Reshape to be flat
+    shapes = np.shape(x_test_latent)
+    latent_dims = shapes[1] * shapes[2] * shapes[3]
+    shapes = np.shape(x_test_denoise)
+    denoise_dims = shapes[1] * shapes[2] * shapes[3]
+    
+    x_test_latent = np.reshape((len(x_test_latent), latent_dims))
+    x_train_latent = np.reshape((len(x_train_latent), latent_dims))
+    x_valid_latent = np.reshape((len(x_valid_latent), latent_dims))
+    
+    x_test_denoise = np.reshape((len(x_test_denoise), denoise_dims))
+    x_train_denoise = np.reshape((len(x_train_denoise), denoise_dims))
+    x_valid_denoise = np.reshape((len(x_valid_denoise), denoise_dims))
+    
     # 5. Train basic MLP for latent space (simple 3 MLP with nodes = 2x number of latent space nodes)
     latent_nodes = int(window_size[0]/8) * int(window_size[1]/8) * nodes[2]
     hidden = latent_nodes * 2
     
     # Simple 3 Layer MLP
-    shapes = np.shape(x_train_latent)
-    input = layers.Input(shape = (shapes[1], shapes[2],shapes[3]))
+    input = layers.Input(shape = (latent_dims))
     x = layers.Dense(hidden, activation='relu')(input)
     x = layers.Dropout(dropout)(x)
     x = layers.Dense(hidden, activation='relu')(x)
@@ -504,7 +517,7 @@ if __name__ == '__main__':
     
     # 6. Train basic MLP for denoised (using same MLP size as latent space training)
     # Simple 3 Layer MLP   
-    input = layers.Input(shape = (window_size[0], window_size[1],1))
+    input = layers.Input(shape = (denoise_dims))
     x = layers.Dense(hidden, activation='relu')(input)
     x = layers.Dropout(dropout)(x)
     x = layers.Dense(hidden, activation='relu')(x)
