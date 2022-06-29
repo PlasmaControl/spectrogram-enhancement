@@ -469,7 +469,7 @@ if __name__ == '__main__':
     # Simple 3 Layer MLP
     latent_model = models.Sequential()
     latent_model.add(layers.Dense(hidden, 
-                           input_dim=encoder.output, 
+                           input_dim=encoder.output.shape, 
                            activation='relu'))
     latent_model.add(layers.Dropout(dropout))
     latent_model.add(layers.Dense(hidden, activation='relu'))
@@ -506,7 +506,7 @@ if __name__ == '__main__':
     # Simple 3 Layer MLP
     denoise_model = models.Sequential()
     denoise_model.add(layers.Dense(hidden, 
-                           input_dim=autoencoder.input,
+                           input_dim=autoencoder.input.shape,
                            activation='relu'))
     denoise_model.add(layers.Dropout(dropout))
     denoise_model.add(layers.Dense(hidden, activation='relu'))
