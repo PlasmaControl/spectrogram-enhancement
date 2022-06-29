@@ -248,6 +248,11 @@ def process_inputs(x, y, window_size, num_strips):
     assert(np.shape(x_train)[0] == np.shape(y_train)[0])
     assert(np.shape(x_valid)[0] == np.shape(y_valid)[0])
     
+    # Reshape x to have 1 at end
+    x_test = reshape(x_test)
+    x_train = reshape(x_train)
+    x_valid = reshape(x_valid)
+    
     return x_test, x_train, x_valid, y_test, y_train, y_valid
 
 def patch_spec(x, inds, window_size, num_strips):
@@ -294,8 +299,6 @@ def patch_label(y, shots, width, num_strips):
     '''
     channels = np.shape(y)[1]
     labels = np.zeros((len(shots)*channels*num_strips, 4))
-    
-    print(np.shape(y), flush=True)
     
     for m, shot in enumerate(shots):
         for chn in range(channels):
