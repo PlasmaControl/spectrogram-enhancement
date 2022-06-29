@@ -315,6 +315,9 @@ def patch_label(y, shots, width, num_strips):
     return labels
 
 def make_nice_fig(spec, y_test_batch, y_test_latent, y_test_denoise, t, shotnum):
+    '''
+    spec format: (chan, time, freq)
+    '''
     ts = 20 #font size
     fs = 26
     linestyles = ['-',':','--','-.']
@@ -338,7 +341,7 @@ def make_nice_fig(spec, y_test_batch, y_test_latent, y_test_denoise, t, shotnum)
         
         # Plot spectrogram
         ax0 = plt.subplot(grd[0, i])
-        ax0.pcolormesh(t, f, spec[channel,:,:].T, cmap='hot')
+        ax0.pcolormesh(t, f, spec[channel,:,:], cmap='hot')
 
         ax0.set_title(f'Shot {shotnum} Channel #{channel+1}', fontsize=fs)
         if i != 0:
@@ -513,7 +516,6 @@ if __name__ == '__main__':
                         )
     
     # Save model
-    # Save model
     path = LOGDIR+'models/'+label
     if not os.path.exists(path):
         os.makedirs(path)
@@ -560,13 +562,17 @@ if __name__ == '__main__':
     n_test = 5
     test_inds = [1, 6, 14, 11, 18]  #, 23]
     
-    y_test_latent  = latent_model.predict(x_test)
-    y_test_denoise = denoise_model.predict(x_test)
+    # Format (shotn, chan, freq, time)
+    x = np.transpose(x, axes=[0,3,2,1])
+    
+    y_test_latent  = latent_model.predict(x_test_latent)
+    y_test_denoise = denoise_model.predict(x_test_denoise)
     
     file_writer = tf.summary.create_file_writer(LOGDIR+label+'/plots')
     
     for i in range(n_test):
-        fig = make_nice_fig(x_test[i,:,:,:], y_test[i,:,:,:], y_test_latent[i,:,:,:], y_test_denoise[i,:,:,:], t, SHOTS[test_inds[i]])
+        fig = make_nice_fig(x[test_inds[i],:,:,:], y_test[i,:,:,:], y_test_latent[i,:,:,:], 
+                            y_test_denoise[i,:,:,:], t, SHOTS[test_inds[i]])
         
         # Save plot in log
         with file_writer.as_default():
