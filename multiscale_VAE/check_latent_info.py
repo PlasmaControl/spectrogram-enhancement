@@ -628,7 +628,7 @@ if __name__ == '__main__':
     y_test_denoise = unpatch_label(y_test_denoise, len(test_inds), 
                                   N_CHANNELS, num_strips, width)
     
-    file_writer = tf.summary.create_file_writer(LOGDIR+label+'/plots')
+    file_writer = tf.summary.create_file_writer(LOGDIR+'logs/'+label+'/plots')
     
     for i in range(n_test):
         fig = make_nice_fig(x_plot[test_inds[i],:,:,:], y_test[i,:,:,:], y_test_latent[i,:,:,:], 
