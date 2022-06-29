@@ -468,7 +468,7 @@ if __name__ == '__main__':
     print('Before making model', flush=True)
     # Simple 3 Layer MLP
     shapes = np.shape(x_train_latent)
-    input = layers.Input(shape = (shapes[1], shapes[2],1))
+    input = layers.Input(shape = (shapes[1], shapes[2],shapes[3]))
     x = layers.Dense(hidden, activation='relu')(input)
     x = layers.Dropout(dropout)(x)
     x = layers.Dense(hidden, activation='relu')(x)
