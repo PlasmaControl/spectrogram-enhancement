@@ -429,7 +429,7 @@ if __name__ == '__main__':
     start = time.time()
     n_labels = 4
     dropout = 0.3
-    ep = 100
+    ep = 30
     
     num_samples, kernels, nodes, width, MULTI = get_params(JOB_ID)
     window_size = (256, width)
@@ -491,7 +491,7 @@ if __name__ == '__main__':
     
     latent_model = Model(input, x)
 
-    latent_model.compile(loss='mse', optimizer='adam')
+    latent_model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
     latent_model.summary()
     
     if MULTI:
@@ -532,7 +532,7 @@ if __name__ == '__main__':
     
     denoise_model = Model(input, x)
 
-    denoise_model.compile(loss='mse', optimizer='adam')
+    denoise_model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
     
     denoise_callback = TensorBoard(log_dir=LOGDIR+'logs/'+label+'/denoise', histogram_freq=1)
     
