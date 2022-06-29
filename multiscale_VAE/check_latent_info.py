@@ -467,9 +467,10 @@ if __name__ == '__main__':
     
     print('Before making model', flush=True)
     # Simple 3 Layer MLP
+    input_dims = np.asarray(encoder.output.shape)
     latent_model = models.Sequential()
     latent_model.add(layers.Dense(hidden, 
-                           input_dim=encoder.output.shape, 
+                           input_dim=input_dims, 
                            activation='relu'))
     latent_model.add(layers.Dropout(dropout))
     latent_model.add(layers.Dense(hidden, activation='relu'))
@@ -504,9 +505,10 @@ if __name__ == '__main__':
     
     # 6. Train basic MLP for denoised (using same MLP size as latent space training)
     # Simple 3 Layer MLP
+    input_dims = np.asarray(autoencoder.input.shape)
     denoise_model = models.Sequential()
     denoise_model.add(layers.Dense(hidden, 
-                           input_dim=autoencoder.input.shape,
+                           input_dim=input_dims,
                            activation='relu'))
     denoise_model.add(layers.Dropout(dropout))
     denoise_model.add(layers.Dense(hidden, activation='relu'))
