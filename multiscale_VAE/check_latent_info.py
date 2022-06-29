@@ -226,6 +226,7 @@ def process_inputs(x, y, window_size, num_strips):
     # Reshape to (shots, channels, time, freq)
     x = np.transpose(x, axes=[0,3,2,1])
 
+    print(np.shape(y), flush=True)
     # Reshape to (shots, channels, time, label)
     y = np.transpose(y, axes=[0,2,1,3])
 
