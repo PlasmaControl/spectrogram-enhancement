@@ -465,6 +465,7 @@ if __name__ == '__main__':
     latent_nodes = int(window_size[0]/8) * int(window_size[1]/8) * nodes[2]
     hidden = latent_nodes * 2
     
+    print('Before making model', flush=True)
     # Simple 3 Layer MLP
     latent_model = models.Sequential()
     latent_model.add(layers.Dense(hidden, 
@@ -478,6 +479,7 @@ if __name__ == '__main__':
     latent_model.add(layers.Dense(n_labels, activation='sigmoid'))
 
     latent_model.compile(loss='mse')
+    print('Compiled model', flush=True)
     
     if MULTI:
         label  = f'{width}_{nodes[2]}_{kernels[0]}_{kernels[1]}_{kernels[2]}'
