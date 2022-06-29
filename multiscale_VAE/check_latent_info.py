@@ -249,9 +249,9 @@ def process_inputs(x, y, window_size, num_strips):
     assert(np.shape(x_valid)[0] == np.shape(y_valid)[0])
     
     # Swap freq and time in x
-    x_test = np.transpose(x_test, axes=[0,1,3,2])
-    x_train = np.transpose(x_train, axes=[0,1,3,2])
-    x_valid = np.transpose(x_valid, axes=[0,1,3,2])
+    x_test = np.transpose(x_test, axes=[0,2,1])
+    x_train = np.transpose(x_train, axes=[0,2,1])
+    x_valid = np.transpose(x_valid, axes=[0,2,1])
     
     # Reshape x to have 1 at end
     x_test = reshape(x_test)
