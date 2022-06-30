@@ -330,7 +330,28 @@ def unpatch_label(label_strips, n_shots, num_strips, width, n_labels=4):
     
     return labels
 
-def make_nice_fig(spec, y_test_batch, y_test_latent, y_test_denoise, t, shotnum):
+def unpatch_spec(spec_strips, n_shots, num_strips, width):
+    '''
+    Takes spectrogram patches of form:
+    (n_shots*n_channels*num_strips, freq, time)
+    
+    and returns labels with dims
+    (n_shots, N_CHANNELS, freq, time)
+    '''
+    freq = spec_strips.shape[1]
+    spec = np.zeros((n_shots, N_CHANNELS, freq, num_strips*width))
+    
+    for shot in range(n_shots):
+        for chn in range(N_CHANNELS):
+            for strip in range(num_strips):
+                ind = shot * num_strips * N_CHANNELS + chn * num_strips + strip
+                t_ind = strip*width
+                
+                spec[shot, chn,:, t_ind:t_ind+width] = spec_strips[ind,:,:]
+    
+    return spec
+
+def make_nice_fig(spec, denoise_spec, y_test_batch, y_test_latent, y_test_denoise, t, shotnum):
     '''
     spec format: (chan, time, freq)
     '''
@@ -341,8 +362,8 @@ def make_nice_fig(spec, y_test_batch, y_test_latent, y_test_denoise, t, shotnum)
     channels = [13,17]
 
     plt.clf()
-    fig = plt.figure(figsize=(18,24))
-    grd = gridspec.GridSpec(ncols=2, nrows=4, figure=fig)
+    fig = plt.figure(figsize=(12,20))
+    grd = gridspec.GridSpec(ncols=2, nrows=5, figure=fig)
     f = np.linspace(1,256, num=256)
 
     for i, channel in enumerate(channels):
@@ -369,8 +390,21 @@ def make_nice_fig(spec, y_test_batch, y_test_latent, y_test_denoise, t, shotnum)
         ax0.set_xticks([0, 0.5, 1.0, 1.5])
         ax0.set_xticklabels([])
         
+        # Plot spectrogram
+        ax0 = plt.subplot(grd[1, i])
+        ax0.pcolormesh(t, f, denoise_spec[channel,:,:].T, cmap='hot')
+
+        if i != 0:
+            ax0.set_yticklabels([])
+        else:
+            ax0.set_ylabel('Denoised ECE Data: f (kHz)', fontsize=fs)
+            ax0.tick_params(axis='y', labelsize=ts)
+        ax0.set_xlim(0, 1.9)
+        ax0.set_xticks([0, 0.5, 1.0, 1.5])
+        ax0.set_xticklabels([])
+        
         # Plot true labels
-        ax1 = plt.subplot(grd[1, i])
+        ax1 = plt.subplot(grd[2, i])
         for k in range(4):
             ax1.plot(t[:len(labels_i)], labels_i[:, k], label=AE_type[k], linestyle=linestyles[k])
         ax1.grid(True)
@@ -389,7 +423,7 @@ def make_nice_fig(spec, y_test_batch, y_test_latent, y_test_denoise, t, shotnum)
         ax1.set_xticklabels([])
         
         # Latent Predicted Labels
-        ax2 = plt.subplot(grd[2, i])
+        ax2 = plt.subplot(grd[3, i])
         for k in range(4):
             ax2.plot(t[:len(labels_i_latent)], labels_i_latent[:, k], label=AE_type[k], linestyle=linestyles[k])
         ax2.grid(True)
@@ -408,7 +442,7 @@ def make_nice_fig(spec, y_test_batch, y_test_latent, y_test_denoise, t, shotnum)
         ax2.set_xticks([0, 0.5, 1.0, 1.5])
         
         # Denoised Predicted Labels
-        ax3 = plt.subplot(grd[3, i])
+        ax3 = plt.subplot(grd[4, i])
         for k in range(4):
             ax3.plot(t[:len(labels_i_denoise)], labels_i_denoise[:, k], label=AE_type[k], linestyle=linestyles[k])
         ax3.grid(True)
@@ -621,10 +655,14 @@ if __name__ == '__main__':
     y_test_denoise = unpatch_label(y_test_denoise, len(test_inds), 
                                   num_strips, width)
     
+    x_denoise = unpatch_spec(x_test_denoise, len(test_inds), 
+                             num_strips, width)
+    
     file_writer = tf.summary.create_file_writer(LOGDIR+'logs/'+label+'/plots')
     
     for i in range(n_test):
-        fig = make_nice_fig(x_plot[test_inds[i],:,:,:], y_test[i,:,:,:], y_test_latent[i,:,:,:], 
+        fig = make_nice_fig(x_plot[test_inds[i],:,:,:], x_denoise[i,:,:,:], 
+                            y_test[i,:,:,:], y_test_latent[i,:,:,:], 
                             y_test_denoise[i,:,:,:], t, SHOTS[test_inds[i]])
         
         # Save plot in log
