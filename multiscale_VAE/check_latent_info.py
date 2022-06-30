@@ -478,11 +478,45 @@ def plot_to_image(figure):
   image = tf.expand_dims(image, 0)
   return image
 
+def flatten_shape(x):
+    '''
+    x has dimensions:
+    (num strips, dim 1, dim 2, dim 3)
+    
+    The three dimensions change based on width and number of
+    nodes being used. This flattens each strip into a 1d array
+    (num_strips, dim1*dim2*dim3)
+    '''
+    shape = x.shape
+    strips = shape[0]
+    total_dim = shape[1]*shape[2]*shape[3]
+    
+    flat = np.zeros((strips, total_dim))
+    
+    for strip in range(strips):
+        flat[strip,:] = np.flatten(x[strip,:,:,:])
+        
+    return flat
+
+def unflatten(x, final_shape):
+    '''
+    Takes the flattened strips and puts them in the form of shape.
+    Only used on denoised spectrograms, so only 2 dimensions
+    '''
+    shape = x.shape
+    strips = shape[0]
+    unflat = np.zeros((strips, final_shape[0], final_shape[1]))
+    
+    for strip in range(strips):
+        unflat[strip,:,:] = np.reshape(x[strip,:], final_shape)
+    
+    return unflat
+
 if __name__ == '__main__':
     start = time.time()
     n_labels = 4
     dropout = 0.3
-    ep = 20
+    ep = 2
     
     num_samples, kernels, nodes, width, MULTI = get_params(JOB_ID)
     window_size = (256, width)
@@ -545,19 +579,16 @@ if __name__ == '__main__':
     x_train_denoise = autoencoder.predict(x_train)
     x_valid_denoise = autoencoder.predict(x_valid)
     
-    # Reshape to be flat
-    shapes = np.shape(x_test_latent)
-    latent_dims = shapes[1] * shapes[2] * shapes[3]
-    shapes = np.shape(x_test_denoise)
-    denoise_dims = shapes[1] * shapes[2] * shapes[3]
+    # Reshape to be flat        
+    x_test_latent = flatten_shape(x_test_latent, num_strips)
+    x_train_latent = flatten_shape(x_train_latent, num_strips)
+    x_valid_latent = flatten_shape(x_valid_latent, num_strips)
+    latent_dims = x_test_latent.shape[1]
     
-    x_test_latent = np.reshape(x_test_latent, (len(x_test_latent), latent_dims))
-    x_train_latent = np.reshape(x_train_latent, (len(x_train_latent), latent_dims))
-    x_valid_latent = np.reshape(x_valid_latent, (len(x_valid_latent), latent_dims))
-    
-    x_test_denoise = np.reshape(x_test_denoise, (len(x_test_denoise), denoise_dims))
-    x_train_denoise = np.reshape(x_train_denoise, (len(x_train_denoise), denoise_dims))
-    x_valid_denoise = np.reshape(x_valid_denoise, (len(x_valid_denoise), denoise_dims))
+    x_test_denoise = flatten_shape(x_test_denoise, num_strips)
+    x_train_denoise = flatten_shape(x_train_denoise, num_strips)
+    x_valid_denoise = flatten_shape(x_valid_denoise, num_strips)
+    denoise_dims = x_test_denoise.shape[1]
     
     # 5. Train basic MLP for latent space (simple 3 MLP with nodes = 2x number of latent space nodes)
     latent_nodes = int(window_size[0]/8) * int(window_size[1]/8) * nodes[2]
@@ -654,6 +685,8 @@ if __name__ == '__main__':
     
     y_test_denoise = unpatch_label(y_test_denoise, len(test_inds), 
                                   num_strips, width)
+    
+    x_denoise = unflatten(x_test_denoise, window_size)
     
     x_denoise = unpatch_spec(x_test_denoise, len(test_inds), 
                              num_strips, width)
