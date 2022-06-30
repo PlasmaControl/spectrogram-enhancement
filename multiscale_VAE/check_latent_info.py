@@ -364,7 +364,7 @@ def make_nice_fig(spec, y_test_batch, y_test_latent, y_test_denoise, t, shotnum)
         
         # Plot spectrogram
         ax0 = plt.subplot(grd[0, i])
-        ax0.pcolormesh(t, f, spec[channel,:,:], cmap='hot')
+        ax0.pcolormesh(t, f, spec[channel,:,:].T, cmap='hot')
 
         ax0.set_title(f'Shot {shotnum} Channel #{channel+1}', fontsize=fs)
         if i != 0:
