@@ -521,7 +521,8 @@ if __name__ == '__main__':
     start = time.time()
     n_labels = 4
     dropout = 0.3
-    ep = 20
+    ep = 200
+    BSIZE = 256
     
     num_samples, kernels, nodes, width, MULTI = get_params(JOB_ID)
     window_size = (256, width)
@@ -597,7 +598,7 @@ if __name__ == '__main__':
     
     # 5. Train basic MLP for latent space (simple 3 MLP with nodes = 2x number of latent space nodes)
     latent_nodes = int(window_size[0]/8) * int(window_size[1]/8) * nodes[2]
-    hidden = latent_nodes
+    hidden = latent_nodes*2
     
     # Simple 3 Layer MLP
     input = layers.Input(shape = (latent_dims,))
@@ -630,7 +631,7 @@ if __name__ == '__main__':
     history = latent_model.fit(x_train_latent, y_train, 
                         validation_data=(x_valid_latent, y_valid),
                         epochs=ep,
-                        batch_size=128,
+                        batch_size=BSIZE,
                         callbacks=[latent_callback]
                         )
     
@@ -664,7 +665,7 @@ if __name__ == '__main__':
     history = denoise_model.fit(x_train_denoise, y_train, 
                         validation_data=(x_valid_denoise, y_valid),
                         epochs=ep,
-                        batch_size=128,
+                        batch_size=BSIZE,
                         callbacks=[denoise_callback]
                         )
     
