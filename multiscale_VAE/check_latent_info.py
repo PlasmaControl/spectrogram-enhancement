@@ -379,7 +379,7 @@ def make_nice_fig(spec, y_test_batch, y_test_latent, y_test_denoise, t, shotnum)
         # Plot true labels
         ax1 = plt.subplot(grd[1, i])
         for k in range(4):
-            ax1.plot(t, labels_i[:, k], label=AE_type[k], linestyle=linestyles[k])
+            ax1.plot(t[:len(labels_i)], labels_i[:, k], label=AE_type[k], linestyle=linestyles[k])
         ax1.grid(True)
         if i != 0:
             ax1.set_yticklabels([])
@@ -398,7 +398,7 @@ def make_nice_fig(spec, y_test_batch, y_test_latent, y_test_denoise, t, shotnum)
         # Latent Predicted Labels
         ax2 = plt.subplot(grd[2, i])
         for k in range(4):
-            ax2.plot(t, labels_i_latent[:, k], label=AE_type[k], linestyle=linestyles[k])
+            ax2.plot(t[:len(labels_i_latent)], labels_i_latent[:, k], label=AE_type[k], linestyle=linestyles[k])
         ax2.grid(True)
         if i != 0:
             ax2.set_yticklabels([])
@@ -417,7 +417,7 @@ def make_nice_fig(spec, y_test_batch, y_test_latent, y_test_denoise, t, shotnum)
         # Denoised Predicted Labels
         ax3 = plt.subplot(grd[3, i])
         for k in range(4):
-            ax3.plot(t, labels_i_denoise[:, k], label=AE_type[k], linestyle=linestyles[k])
+            ax3.plot(t[:len(labels_i_denoise)], labels_i_denoise[:, k], label=AE_type[k], linestyle=linestyles[k])
         ax3.grid(True)
         if i != 0:
             ax3.set_yticklabels([])
