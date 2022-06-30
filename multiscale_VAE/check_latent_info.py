@@ -222,6 +222,7 @@ def process_inputs(x, y, window_size, num_strips):
     test_inds = [1, 6, 14, 11, 18]  #, 23] 
     
     valid_inds = [i for i in range(x.shape[0]) if i not in test_inds]
+    np.random.seed(12948)
     valid_inds = np.random.choice(valid_inds, n_valid, replace=False)
 
     # Reshape to (shots, channels, time, freq)
@@ -688,7 +689,7 @@ if __name__ == '__main__':
     
     x_denoise = unflatten(x_test_denoise, window_size)
     
-    x_denoise = unpatch_spec(x_test_denoise, len(test_inds), 
+    x_denoise = unpatch_spec(x_denoise, len(test_inds), 
                              num_strips, width)
     
     file_writer = tf.summary.create_file_writer(LOGDIR+'logs/'+label+'/plots')
