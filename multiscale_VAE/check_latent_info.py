@@ -438,7 +438,6 @@ def make_nice_fig(spec, denoise_spec, y_test_batch, y_test_latent, y_test_denois
         else:
             ax2.set_ylabel('Latent Model labels', fontsize=fs)
             ax2.tick_params(axis='y', labelsize=ts)
-        ax2.set_xlabel('Time (s)', fontsize=fs)
         ax2.tick_params(axis='x', labelsize=ts)
         ax2.set_ylim(0, 1.1)
         ax2.set_yticks([0, 0.25, 0.5, 0.75, 1])
@@ -522,7 +521,7 @@ if __name__ == '__main__':
     start = time.time()
     n_labels = 4
     dropout = 0.3
-    ep = 2
+    ep = 30
     
     num_samples, kernels, nodes, width, MULTI = get_params(JOB_ID)
     window_size = (256, width)
