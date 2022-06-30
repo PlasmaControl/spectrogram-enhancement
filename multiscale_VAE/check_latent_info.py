@@ -517,6 +517,14 @@ def unflatten(x, final_shape):
     
     return unflat
 
+def scheduler(epoch, lr):
+    '''
+    Decrease learning rate 25% every 20 epochs
+    '''
+    if epoch % 20 == 0:
+        return lr * 0.75
+    return lr
+
 if __name__ == '__main__':
     start = time.time()
     n_labels = 4
@@ -627,12 +635,15 @@ if __name__ == '__main__':
     # Fix to use tensorboard
     latent_model._get_distribution_strategy = lambda: None
     
+    # Learning Rate Scheduler
+    lrs_latent = keras.callbacks.LearningRateScheduler(scheduler)
+    
     # Train model and record to tensorboard
     history = latent_model.fit(x_train_latent, y_train, 
                         validation_data=(x_valid_latent, y_valid),
                         epochs=ep,
                         batch_size=BSIZE,
-                        callbacks=[latent_callback]
+                        callbacks=[latent_callback,lrs_latent]
                         )
     
     # Save model
@@ -661,12 +672,15 @@ if __name__ == '__main__':
     # Fix to use tensorboard
     denoise_model._get_distribution_strategy = lambda: None
     
+    # Learning Rate Scheduler
+    lrs_denoise = keras.callbacks.LearningRateScheduler(scheduler)
+    
     # Train model and record to tensorboard
     history = denoise_model.fit(x_train_denoise, y_train, 
                         validation_data=(x_valid_denoise, y_valid),
                         epochs=ep,
                         batch_size=BSIZE,
-                        callbacks=[denoise_callback]
+                        callbacks=[denoise_callback,lrs_denoise]
                         )
     
     # Save model
