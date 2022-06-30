@@ -368,8 +368,10 @@ def make_nice_fig(spec, denoise_spec, y_test_batch, y_test_latent, y_test_denois
     f = np.linspace(1,256, num=256)
     
     # Clip time
-    s = denoise_spec.shape[1]
+    s = denoise_spec.shape[2]
     t = t[:s]
+    print(np.shape(spec), flush=True)
+    print(np.shape(denoise_spec), flush=True)
     spec = spec[:,:s,:]
 
     for i, channel in enumerate(channels):
