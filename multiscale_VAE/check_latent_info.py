@@ -521,7 +521,7 @@ def scheduler(epoch, lr):
     '''
     Decrease learning rate 25% every 20 epochs
     '''
-    if epoch % 20 == 0:
+    if epoch % 10 == 0:
         return lr * 0.75
     return lr
 
@@ -531,6 +531,9 @@ if __name__ == '__main__':
     dropout = 0.3
     ep = 200
     BSIZE = 256
+    
+    opt = keras.optimizers.Adam(learning_rate=0.1)
+    lrs = keras.callbacks.LearningRateScheduler(scheduler)
     
     num_samples, kernels, nodes, width, MULTI = get_params(JOB_ID)
     window_size = (256, width)
@@ -619,7 +622,6 @@ if __name__ == '__main__':
     x = layers.Dense(n_labels, activation='sigmoid')(x)
     
     latent_model = Model(input, x)
-    loss = 'mse' # Old loss
     loss = keras.losses.BinaryCrossentropy()
 
     latent_model.compile(loss=loss, optimizer='adam', metrics=['accuracy'])
@@ -635,15 +637,12 @@ if __name__ == '__main__':
     # Fix to use tensorboard
     latent_model._get_distribution_strategy = lambda: None
     
-    # Learning Rate Scheduler
-    lrs_latent = keras.callbacks.LearningRateScheduler(scheduler)
-    
     # Train model and record to tensorboard
     history = latent_model.fit(x_train_latent, y_train, 
                         validation_data=(x_valid_latent, y_valid),
                         epochs=ep,
                         batch_size=BSIZE,
-                        callbacks=[latent_callback,lrs_latent]
+                        callbacks=[latent_callback,lrs]
                         )
     
     # Save model
@@ -672,15 +671,12 @@ if __name__ == '__main__':
     # Fix to use tensorboard
     denoise_model._get_distribution_strategy = lambda: None
     
-    # Learning Rate Scheduler
-    lrs_denoise = keras.callbacks.LearningRateScheduler(scheduler)
-    
     # Train model and record to tensorboard
     history = denoise_model.fit(x_train_denoise, y_train, 
                         validation_data=(x_valid_denoise, y_valid),
                         epochs=ep,
                         batch_size=BSIZE,
-                        callbacks=[denoise_callback,lrs_denoise]
+                        callbacks=[denoise_callback,lrs]
                         )
     
     # Save model
