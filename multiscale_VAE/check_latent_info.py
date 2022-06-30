@@ -370,8 +370,6 @@ def make_nice_fig(spec, denoise_spec, y_test_batch, y_test_latent, y_test_denois
     # Clip time
     s = denoise_spec.shape[2]
     t = t[:s]
-    print(np.shape(spec), flush=True)
-    print(np.shape(denoise_spec), flush=True)
     spec = spec[:,:s,:]
 
     for i, channel in enumerate(channels):
@@ -400,7 +398,7 @@ def make_nice_fig(spec, denoise_spec, y_test_batch, y_test_latent, y_test_denois
         
         # Plot spectrogram
         ax0 = plt.subplot(grd[1, i])
-        ax0.pcolormesh(t, f, denoise_spec[channel,:,:].T, cmap='hot')
+        ax0.pcolormesh(t, f, denoise_spec[channel,:,:], cmap='hot')
 
         if i != 0:
             ax0.set_yticklabels([])
