@@ -357,7 +357,7 @@ def make_nice_fig(spec, denoise_spec, y_test_batch, y_test_latent, y_test_denois
     spec format: (chan, time, freq)
     '''
     ts = 20 #font size
-    fs = 26
+    fs = 18
     linestyles = ['-',':','--','-.']
     
     channels = [13,17]
@@ -436,7 +436,7 @@ def make_nice_fig(spec, denoise_spec, y_test_batch, y_test_latent, y_test_denois
         if i != 0:
             ax2.set_yticklabels([])
         else:
-            ax2.set_ylabel('Latent Model labels', fontsize=fs)
+            ax2.set_ylabel('Latent labels', fontsize=fs)
             ax2.tick_params(axis='y', labelsize=ts)
         ax2.tick_params(axis='x', labelsize=ts)
         ax2.set_ylim(0, 1.1)
@@ -454,7 +454,7 @@ def make_nice_fig(spec, denoise_spec, y_test_batch, y_test_latent, y_test_denois
         if i != 0:
             ax3.set_yticklabels([])
         else:
-            ax3.set_ylabel('Denoised Model labels', fontsize=fs)
+            ax3.set_ylabel('Denoised labels', fontsize=fs)
             ax3.tick_params(axis='y', labelsize=ts)
         ax3.set_xlabel('Time (s)', fontsize=fs)
         ax3.tick_params(axis='x', labelsize=ts)
@@ -521,7 +521,7 @@ if __name__ == '__main__':
     start = time.time()
     n_labels = 4
     dropout = 0.3
-    ep = 30
+    ep = 20
     
     num_samples, kernels, nodes, width, MULTI = get_params(JOB_ID)
     window_size = (256, width)
@@ -597,7 +597,7 @@ if __name__ == '__main__':
     
     # 5. Train basic MLP for latent space (simple 3 MLP with nodes = 2x number of latent space nodes)
     latent_nodes = int(window_size[0]/8) * int(window_size[1]/8) * nodes[2]
-    hidden = latent_nodes * 2
+    hidden = latent_nodes
     
     # Simple 3 Layer MLP
     input = layers.Input(shape = (latent_dims,))
@@ -610,8 +610,10 @@ if __name__ == '__main__':
     x = layers.Dense(n_labels, activation='sigmoid')(x)
     
     latent_model = Model(input, x)
+    loss = 'mse' # Old loss
+    loss = keras.losses.BinaryCrossentropy()
 
-    latent_model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
+    latent_model.compile(loss=loss, optimizer='adam', metrics=['accuracy'])
     latent_model.summary()
     
     if MULTI:
@@ -651,7 +653,7 @@ if __name__ == '__main__':
     
     denoise_model = Model(input, x)
 
-    denoise_model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
+    denoise_model.compile(loss=loss, optimizer='adam', metrics=['accuracy'])
     
     denoise_callback = TensorBoard(log_dir=LOGDIR+'logs/'+label+'/denoise', histogram_freq=1)
     
