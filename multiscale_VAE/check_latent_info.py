@@ -494,7 +494,7 @@ def flatten_shape(x):
     flat = np.zeros((strips, total_dim))
     
     for strip in range(strips):
-        flat[strip,:] = np.flatten(x[strip,:,:,:])
+        flat[strip,:] = x[strip,:,:,:].flatten()
         
     return flat
 
