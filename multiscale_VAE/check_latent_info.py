@@ -112,7 +112,7 @@ def get_model_name(JOB_ID):
         label = f'keras_model_{width}_{nodes[2]}_{kernels[2]}'
     return dir+label
 
-def load_ECE_data(h5_file='/projects/EKOLEMEN/ae_andy/MLP_specs.h5', n_channels=40):
+def load_ECE_data(h5_file='/projects/EKOLEMEN/ae_andy/MLP_specs.h5'):
     # Begin loop over a batch of files
     x = []
     y = []
@@ -124,7 +124,7 @@ def load_ECE_data(h5_file='/projects/EKOLEMEN/ae_andy/MLP_specs.h5', n_channels=
             
             t = np.asarray(file[shot]['ece']['chn_1']['t'])
             f = np.asarray(file[shot]['ece']['chn_1']['f'])
-            for i in range(n_channels):
+            for i in range(N_CHANNELS):
                 s = np.asarray(file[shot]['ece']['chn_'+str(i+1)]['s'])
                 Sxx.append(s)
             
@@ -140,9 +140,9 @@ def load_ECE_data(h5_file='/projects/EKOLEMEN/ae_andy/MLP_specs.h5', n_channels=
             t1 = np.asarray(t1, float)
             t2 = np.asarray(t2, float)
             channels = np.asarray(channels, int)
-            vector_label = np.zeros((M, n_channels, n_labels))
+            vector_label = np.zeros((M, N_CHANNELS, n_labels))
             for i in range(len(channels)):
-                if np.any(ylabel[i] == AE_TYPE) and channels[i] - 1 < n_channels:
+                if np.any(ylabel[i] == AE_TYPE) and channels[i] - 1 < N_CHANNELS:
                     ae_ind = np.ravel(np.where(AE_TYPE == ylabel[i]))[0]
                     t1_interp = np.abs(t1[i] - t).argmin()
                     t2_interp = np.abs(t2[i] - t).argmin()
@@ -281,7 +281,7 @@ def patch_spec(x, shot_inds, window_size, num_strips):
     for m, shot in enumerate(shot_inds):
         for chan in range(N_CHANNELS):
             for strip in range(num_strips):
-                ind = m * num_strips * channels + chan * num_strips + strip
+                ind = m * num_strips * N_CHANNELS + chan * num_strips + strip
                 t_ind = strip*width
                 output[ind,:,:] = x[shot,chan,t_ind:t_ind+width,:].T
         
@@ -302,32 +302,31 @@ def patch_label(y, shots, width, num_strips):
     
     Note on ordering: matches patch_spec() order
     '''
-    channels = np.shape(y)[1]
-    labels = np.zeros((len(shots)*channels*num_strips, 4))
+    labels = np.zeros((len(shots)*N_CHANNELS*num_strips, 4))
     
     for m, shot in enumerate(shots):
-        for chn in range(channels):
+        for chn in range(N_CHANNELS):
             for strip in range(num_strips):
-                ind = m * num_strips * channels + chn * num_strips + strip
+                ind = m * num_strips * N_CHANNELS + chn * num_strips + strip
                 t_ind = strip*width
                 labels[ind,:] = np.any(y[shot,chn,t_ind:t_ind+width,:], axis=0)
     
     return labels
 
-def unpatch_label(label_strips, n_shots, n_channels, num_strips, width, n_labels=4):
+def unpatch_label(label_strips, n_shots, num_strips, width, n_labels=4):
     '''
     Takes labels of form:
     (n_shots*n_channels*num_strips, num labels)
     
     and returns labels with dims
-    (n_shots, n_channels, time, num labels)
+    (n_shots, N_CHANNELS, time, num labels)
     '''
-    labels = np.zeros((n_shots, n_channels, width*num_strips, n_labels))
+    labels = np.zeros((n_shots, N_CHANNELS, width*num_strips, n_labels))
     
     for shot in range(n_shots):
-        for chn in range(n_channels):
+        for chn in range(N_CHANNELS):
             for strip in range(num_strips):
-                ind = shot * num_strips * n_channels + chn * num_strips + strip
+                ind = shot * num_strips * N_CHANNELS + chn * num_strips + strip
                 t_ind = strip*width
                 
                 # Copy labels to be (width,4) with repeated predicted label
@@ -618,14 +617,14 @@ if __name__ == '__main__':
     y_test_latent  = latent_model.predict(x_test_latent)
     y_test_denoise = denoise_model.predict(x_test_denoise)
     
-    y_test = unpatch_label(y_test, len(test_inds), N_CHANNELS,
+    y_test = unpatch_label(y_test, len(test_inds),
                            num_strips, width)
     
     y_test_latent = unpatch_label(y_test_latent, len(test_inds), 
-                                  N_CHANNELS, num_strips, width)
+                                  num_strips, width)
     
     y_test_denoise = unpatch_label(y_test_denoise, len(test_inds), 
-                                  N_CHANNELS, num_strips, width)
+                                  num_strips, width)
     
     file_writer = tf.summary.create_file_writer(LOGDIR+'logs/'+label+'/plots')
     
