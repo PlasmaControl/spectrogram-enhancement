@@ -530,7 +530,7 @@ if __name__ == '__main__':
     n_labels = 4
     dropout = 0.3
     ep = 200
-    BSIZE = 256
+    BSIZE = 1000
     
     opt = keras.optimizers.Adam(learning_rate=0.1)
     lrs = keras.callbacks.LearningRateScheduler(scheduler)
