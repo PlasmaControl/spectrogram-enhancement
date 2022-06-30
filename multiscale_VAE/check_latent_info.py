@@ -261,7 +261,7 @@ def process_inputs(x, y, window_size, num_strips):
     
     return x_test, x_train, x_valid, y_test, y_train, y_valid
 
-def patch_spec(x, inds, window_size, num_strips):
+def patch_spec(x, shot_inds, window_size, num_strips):
     '''
     Takes x input with dimensions:
     (shots, channels, time, freq)
@@ -274,17 +274,16 @@ def patch_spec(x, inds, window_size, num_strips):
     before moving to next channel, then all channels before next shot. 
     This relevant to make sure label patches match spec patches. 
     '''
-    channels = np.shape(x)[1]
-    output = []
+    freq = window_size[0]
+    width = window_size[1]
+    output = np.zeros((len(shot_inds)*N_CHANNELS*num_strips, freq, width))
     
-    for ind in inds:
-        spec = x[ind,:,:,:]
-        patches = patch(spec, window_size, num_strips)
-        
-        if output == []:
-            output = patches
-        else:
-            output = np.append(output, patches, axis=0)
+    for m, shot in enumerate(shot_inds):
+        for chan in range(N_CHANNELS):
+            for strip in range(num_strips):
+                ind = m * num_strips * channels + chan * num_strips + strip
+                t_ind = strip*width
+                output[ind,:,:] = x[shot,chan,t_ind:t_ind+width,:].T
         
     return output
         
@@ -636,6 +635,6 @@ if __name__ == '__main__':
         
         # Save plot in log
         with file_writer.as_default():
-            tf.summary.image(f"chn_{i+1}", plot_to_image(fig), step=0)
+            tf.summary.image(f"shot_{SHOTS[test_inds[i]]}", plot_to_image(fig), step=0)
     
     print(f'Total time: {int((time.time()-start)/60)} min')
