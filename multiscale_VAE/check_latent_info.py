@@ -580,14 +580,14 @@ if __name__ == '__main__':
     x_valid_denoise = autoencoder.predict(x_valid)
     
     # Reshape to be flat        
-    x_test_latent = flatten_shape(x_test_latent, num_strips)
-    x_train_latent = flatten_shape(x_train_latent, num_strips)
-    x_valid_latent = flatten_shape(x_valid_latent, num_strips)
+    x_test_latent = flatten_shape(x_test_latent)
+    x_train_latent = flatten_shape(x_train_latent)
+    x_valid_latent = flatten_shape(x_valid_latent)
     latent_dims = x_test_latent.shape[1]
     
-    x_test_denoise = flatten_shape(x_test_denoise, num_strips)
-    x_train_denoise = flatten_shape(x_train_denoise, num_strips)
-    x_valid_denoise = flatten_shape(x_valid_denoise, num_strips)
+    x_test_denoise = flatten_shape(x_test_denoise)
+    x_train_denoise = flatten_shape(x_train_denoise)
+    x_valid_denoise = flatten_shape(x_valid_denoise)
     denoise_dims = x_test_denoise.shape[1]
     
     # 5. Train basic MLP for latent space (simple 3 MLP with nodes = 2x number of latent space nodes)
