@@ -366,6 +366,11 @@ def make_nice_fig(spec, denoise_spec, y_test_batch, y_test_latent, y_test_denois
     fig = plt.figure(figsize=(12,20))
     grd = gridspec.GridSpec(ncols=2, nrows=5, figure=fig)
     f = np.linspace(1,256, num=256)
+    
+    # Clip time
+    s = denoise_spec.shape[1]
+    t = t[:s]
+    spec = spec[:,:s,:]
 
     for i, channel in enumerate(channels):
         labels_i = np.squeeze(y_test_batch[channel,:,:])
